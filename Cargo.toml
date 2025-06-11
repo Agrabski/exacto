@@ -15,11 +15,21 @@ panic-halt = "1.0.0"
 ufmt = "0.2.0"
 nb = "1.1.0"
 embedded-hal = "1.0"
+display-interface-spi = "0.5.0"
+display-interface = "0.5.0"
+embedded-graphics-core = { version = "0.4"}
+embedded-graphics = "0.8.1"
+ssd1351="0.5.0"
+[dependencies.byte-slice-cast]
+version = "1.2.2"
+default-features = false
 
 [dependencies.arduino-hal]
 git = "https://github.com/rahix/avr-hal"
 rev = "fafaf587a32a4500239fd073f89d1b9c36b48092"
 features = ["arduino-uno"]
+
+
 
 # Configure the build for minimal size - AVRs have very little program memory
 [profile.dev]
@@ -33,3 +43,8 @@ codegen-units = 1
 debug = true
 lto = true
 opt-level = "s"
+
+[features]
+default = ["graphics"]
+graphics = []
+buffered = []
