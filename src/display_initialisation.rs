@@ -74,8 +74,8 @@ pub fn create_display(spi: SPI, pins: arduino_hal::Pins) -> GraphicsMode<SpiWrap
     let mut cs = pins.d10.into_output();
     let clk = pins.d13.into_output();
     let din = pins.d11.into_output();
-    let mut rst = pins.d2.downgrade().into_output();
-    let mut dc = pins.d3.downgrade().into_output();
+    let mut rst = pins.d4.downgrade().into_output();
+    let mut dc = pins.d5.downgrade().into_output();
     let mut miso = pins.d12.into_pull_up_input();
 
     cs.set_low();
