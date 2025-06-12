@@ -1,12 +1,19 @@
 #![no_std]
 #![no_main]
 mod display_initialisation;
+mod encoder;
 mod sight;
 
+use core::fmt::Debug;
+
+use arduino_hal::default_serial;
 use arduino_hal::hal::port::PB2;
+use arduino_hal::port::mode::PullUp;
+use embedded_graphics::mock_display::ColorMapping;
 use embedded_graphics::mono_font::ascii::FONT_6X10;
 use embedded_graphics::mono_font::MonoTextStyle;
-use embedded_graphics::prelude::Primitive;
+use embedded_graphics::pixelcolor::Rgb555;
+use embedded_graphics::prelude::{DrawTarget, Primitive};
 use embedded_graphics::primitives::PrimitiveStyleBuilder;
 use embedded_graphics::text::renderer::TextRenderer;
 use embedded_graphics::text::{Text, TextStyle};
@@ -19,29 +26,63 @@ use embedded_graphics_core::{prelude::Size, primitives::Rectangle};
 use ssd1351::mode::GraphicsMode;
 
 use crate::display_initialisation::{create_display, SpiWrapper};
+use crate::encoder::RotaryEncoder;
 use crate::sight::Sight;
 
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
+    let mut cs = pins.d10.into_output();
+    let clk = pins.d13.into_output();
+    let din = pins.d11.into_output();
+    let mut rst = pins.d4.downgrade().into_output();
+    let mut dc = pins.d5.downgrade().into_output();
+    let miso = pins.d12.into_pull_up_input();
 
-    let mut interface = create_display(dp.SPI, pins);
+    let mut interface = create_display(dp.SPI, cs, clk, din, rst, dc, miso);
 
-    display_sight(
-        &mut interface,
-        &Sight {
-            x_zero: 15,
-            y_zero: -9,
-            battery_power: 15,
-            range: 33,
-        },
-    );
+    let mut sight = Sight {
+        x_zero: 0,
+        y_zero: 0,
+        battery_power: 15,
+        range: 33,
+    };
+    interface.clear();
+    display_sight(&mut interface, &sight);
+    let pin_a = pins.d2.into_pull_up_input();
+    let pin_b = pins.d3.into_pull_up_input();
+    let pin_sw = pins.d9.into_pull_up_input();
 
-    loop {}
+    let mut encoder = RotaryEncoder::new(pin_a, pin_b, pin_sw).unwrap();
+
+    let mut serial = default_serial!(dp, pins, 57600);
+    let mut last_update_loop = 0;
+    let mut last_sight = sight;
+    
+    loop {
+        encoder.update().unwrap();
+        let position = encoder.position();
+        ufmt::uwriteln!(&mut serial, "loop {}", last_update_loop).ok();
+        if sight.range != position as u8 {
+            sight.range = position as u8;
+        }
+        if (last_update_loop > 1500 && last_sight != sight)
+            || absolute_difference(last_sight.range, sight.range) > 8
+        {
+            interface.clear();
+            display_sight( &mut interface, &sight);
+            last_update_loop = 0;
+            last_sight = sight;
+        }
+        last_update_loop += 1;
+    }
 }
 
-fn display_sight(interface: &mut GraphicsMode<SpiWrapper<PB2>>, sight: &Sight) {
+fn display_sight<T>(interface: &mut T, sight: &Sight)
+where
+    T: DrawTarget<Color = Rgb565, Error: Debug>,
+{
     let mut buffer = *b"RNG: XXX";
     write_value(interface, sight.range, Point::new(0, 76), &mut buffer);
 
@@ -55,9 +96,16 @@ fn display_sight(interface: &mut GraphicsMode<SpiWrapper<PB2>>, sight: &Sight) {
     draw_reticle(interface, sight);
 }
 
-fn draw_reticle(interface: &mut GraphicsMode<SpiWrapper<PB2>>, sight: &Sight) {
-    let reticle_size: u8 = 4;
-    let position_x = (128 / 2 + sight.x_zero ) as u8;
+fn absolute_difference(a: u8, b: u8) -> u8 {
+    (a as i16 - b as i16).abs() as u8
+}
+
+fn draw_reticle<T>(interface: &mut T, sight: &Sight)
+where
+    T: DrawTarget<Color = Rgb565, Error: Debug>,
+{
+    let reticle_size: u8 = 8;
+    let position_x = (128 / 2 + sight.x_zero) as u8;
     let position_y = (96 / 2 + sight.y_zero) as u8;
     let r = Rectangle::new(
         Point::new(
@@ -73,14 +121,26 @@ fn draw_reticle(interface: &mut GraphicsMode<SpiWrapper<PB2>>, sight: &Sight) {
             .build(),
     );
     r.draw(interface).unwrap();
+    let adjusted = Rectangle::new(
+        Point::new(
+            (position_x - reticle_size / 4) as i32,
+            (position_y - reticle_size / 4 + sight.range / 2) as i32,
+        ),
+        Size::new((reticle_size / 2) as u32, (reticle_size / 2) as u32),
+    )
+    .into_styled(
+        PrimitiveStyleBuilder::new()
+            .stroke_width(1)
+            .stroke_color(Rgb565::BLUE)
+            .build(),
+    );
+    adjusted.draw(interface).unwrap();
 }
 
-fn write_value(
-    interface: &mut GraphicsMode<SpiWrapper<PB2>>,
-    value: u8,
-    position: Point,
-    buffer: &mut [u8],
-) {
+fn write_value<T>(interface: &mut T, value: u8, position: Point, buffer: &mut [u8])
+where
+    T: DrawTarget<Color = Rgb565, Error: Debug>,
+{
     let style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
 
     format_two_digit(value, buffer);

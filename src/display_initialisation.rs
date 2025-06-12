@@ -5,10 +5,15 @@ use ssd1351::mode::GraphicsMode;
 use arduino_hal::{
     hal::{
         self,
-        port::{self, PB2},
+        port::{self, Dynamic, PB2, PB3, PB4, PB5},
     },
     pac::SPI,
-    spi::{ChipSelectPin, DataOrder, SerialClockRate}, Spi,
+    port::{
+        mode::{Input, Output, PullUp},
+        Pin,
+    },
+    spi::{ChipSelectPin, DataOrder, SerialClockRate},
+    Spi,
 };
 use byte_slice_cast::AsByteSlice;
 use display_interface::{DataFormat, WriteOnlyDataCommand};
@@ -70,14 +75,15 @@ where
     }
 }
 
-pub fn create_display(spi: SPI, pins: arduino_hal::Pins) -> GraphicsMode<SpiWrapper<PB2>> {
-    let mut cs = pins.d10.into_output();
-    let clk = pins.d13.into_output();
-    let din = pins.d11.into_output();
-    let mut rst = pins.d4.downgrade().into_output();
-    let mut dc = pins.d5.downgrade().into_output();
-    let mut miso = pins.d12.into_pull_up_input();
-
+pub fn create_display(
+    spi: SPI,
+    mut cs: Pin<Output, PB2>,
+    clk: Pin<Output, PB5>,
+    din: Pin<Output, PB3>,
+    mut rst: Pin<Output, Dynamic>,
+    mut dc: Pin<Output, Dynamic>,
+    miso: Pin<Input<PullUp>, PB4>,
+) -> GraphicsMode<SpiWrapper<PB2>> {
     cs.set_low();
     dc.set_low();
     rst.set_low();

@@ -1,3 +1,4 @@
+#[derive(PartialEq, Clone, Copy)]
 pub struct Sight {
     pub x_zero: i16,
     pub y_zero: i16,
