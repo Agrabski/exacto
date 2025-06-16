@@ -2,30 +2,25 @@
 #![no_main]
 mod display_initialisation;
 mod encoder;
+mod settings;
 mod sight;
 
 use core::fmt::Debug;
 
 use arduino_hal::default_serial;
-use arduino_hal::hal::port::PB2;
-use arduino_hal::port::mode::PullUp;
-use embedded_graphics::mock_display::ColorMapping;
 use embedded_graphics::mono_font::ascii::FONT_6X10;
 use embedded_graphics::mono_font::MonoTextStyle;
-use embedded_graphics::pixelcolor::Rgb555;
 use embedded_graphics::prelude::{DrawTarget, Primitive};
 use embedded_graphics::primitives::PrimitiveStyleBuilder;
-use embedded_graphics::text::renderer::TextRenderer;
-use embedded_graphics::text::{Text, TextStyle};
+use embedded_graphics::text::Text;
 use embedded_graphics::Drawable;
 use embedded_graphics::{
     pixelcolor::Rgb565,
     prelude::{Point, RgbColor},
 };
 use embedded_graphics_core::{prelude::Size, primitives::Rectangle};
-use ssd1351::mode::GraphicsMode;
 
-use crate::display_initialisation::{create_display, SpiWrapper};
+use crate::display_initialisation::create_display;
 use crate::encoder::RotaryEncoder;
 use crate::sight::Sight;
 
@@ -33,11 +28,11 @@ use crate::sight::Sight;
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
-    let mut cs = pins.d10.into_output();
+    let cs = pins.d10.into_output();
     let clk = pins.d13.into_output();
     let din = pins.d11.into_output();
-    let mut rst = pins.d4.downgrade().into_output();
-    let mut dc = pins.d5.downgrade().into_output();
+    let rst = pins.d4.downgrade().into_output();
+    let dc = pins.d5.downgrade().into_output();
     let miso = pins.d12.into_pull_up_input();
 
     let mut interface = create_display(dp.SPI, cs, clk, din, rst, dc, miso);
@@ -59,23 +54,37 @@ fn main() -> ! {
     let mut serial = default_serial!(dp, pins, 57600);
     let mut last_update_loop = 0;
     let mut last_sight = sight;
-    
+    let mut settings_state = settings::SettingsState::new();
+
     loop {
         encoder.update().unwrap();
-        let position = encoder.position();
-        ufmt::uwriteln!(&mut serial, "loop {}", last_update_loop).ok();
-        if sight.range != position as u8 {
-            sight.range = position as u8;
-        }
-        if (last_update_loop > 1500 && last_sight != sight)
-            || absolute_difference(last_sight.range, sight.range) > 8
-        {
-            interface.clear();
-            display_sight( &mut interface, &sight);
-            last_update_loop = 0;
-            last_sight = sight;
-        }
+        ufmt::uwriteln!(&mut serial, "position {}", encoder.position()).ok();
         last_update_loop += 1;
+        let settings_was_updated = settings_state.update(&mut encoder);
+        if settings_was_updated || settings_state.is_open() {
+            if settings_was_updated {
+                interface.clear();
+                settings_state.draw(&mut interface);
+                last_update_loop = 0;
+            }
+        } else {
+            let mut position = encoder.position();
+            if position < 0 {
+                encoder.reset();
+                position = 0;
+            }
+            if sight.range != position as u8 {
+                sight.range = position as u8;
+            }
+            if (last_update_loop > 1500 && last_sight != sight)
+                || absolute_difference(last_sight.range, sight.range) > 8
+            {
+                interface.clear();
+                display_sight(&mut interface, &sight);
+                last_update_loop = 0;
+                last_sight = sight;
+            }
+        }
     }
 }
 
