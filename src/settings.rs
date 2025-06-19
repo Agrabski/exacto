@@ -1,7 +1,17 @@
 mod rendering;
+mod sub_menus;
+mod ui;
 
-use crate::{encoder::RotaryEncoder, settings::rendering::SettingsRenderer};
-use core::fmt::Debug;
+use crate::{
+    encoder::RotaryEncoder,
+    settings::{
+        rendering::SettingsRenderer,
+        sub_menus::main_menu::{MainMenuState, MainMenuType, MAIN_MENU},
+        ui::{ClickResult, SubMenuPointer, SubMenuPointerImpl},
+    },
+    sight::Sight,
+};
+use core::{fmt::Debug, iter::Map, ops::Sub};
 use embedded_graphics::{
     mono_font::{ascii::FONT_6X10, MonoTextStyle},
     pixelcolor::Rgb565,
@@ -10,10 +20,12 @@ use embedded_graphics::{
 };
 use embedded_graphics_core::Drawable;
 use embedded_hal::digital::InputPin;
+use ufmt::derive;
 
 pub struct SettingsState {
     current_menu: Option<SettingsMenu>,
     rotor_position: i32,
+    states: SubMenuStates,
 }
 
 enum RotorInput {
@@ -21,77 +33,41 @@ enum RotorInput {
     Down,
 }
 
+#[derive(Debug, Clone, Copy)]
 enum SettingsMenu {
-    MainMenu(MainSubMenu),
+    MainMenu,
+    Sight,
+    Settings,
+    About,
 }
 
-struct MainSubMenu {
-    selected_option: i8,
+
+struct SubMenuStates {
+    main_menu: SubMenuPointerImpl<MainMenuState, MainMenuType>,
 }
 
-impl MainSubMenu {
+impl SubMenuStates {
     pub fn new() -> Self {
-        Self { selected_option: 0 }
-    }
-}
-
-impl SubMenu for MainSubMenu {
-    fn handle_input(&mut self, input: RotorInput) {
-        self.selected_option = match input {
-            RotorInput::Up => self.selected_option + 1,
-            RotorInput::Down => self.selected_option - 1,
-        };
-        if self.selected_option < 0 {
-            self.selected_option = 3;
-        } else {
-            self.selected_option = self.selected_option % 4;
+        Self {
+            main_menu: SubMenuPointerImpl {
+                submenu: &MAIN_MENU,
+                state: MainMenuState { selected_index: 0 },
+            },
         }
     }
 
-    fn handle_click(&mut self) -> Option<SettingsMenu> {
-        // Handle click and return next menu if applicable
-        None
-    }
-
-    fn draw<DI>(&self, display: &mut DI)
-    where
-        DI: SettingsRenderer,
-    {
-        let pick_option = |index: i8| {
-            if index == self.selected_option {
-                rendering::TextType::Highlighted
-            } else {
-                rendering::TextType::Normal
-            }
-        };
-        display.render_text("Main Menu", 0, rendering::TextType::Normal);
-        display.render_text("Option 1", 1, pick_option(0));
-        display.render_text("Option 2", 2, pick_option(1));
-
-        display.render_text("Option 3", 3, pick_option(2));
-
-        display.render_text("Option 4", 4, pick_option(3));
-    }
-}
-
-trait SubMenu {
-    fn draw<DI>(&self, display: &mut DI)
-    where
-        DI: SettingsRenderer;
-    fn handle_input(&mut self, input: RotorInput);
-    fn handle_click(&mut self) -> Option<SettingsMenu>;
-}
-
-impl SettingsMenu {
-    fn handle_input(&mut self, _input: RotorInput) {
-        match self {
-            SettingsMenu::MainMenu(sub_menu) => sub_menu.handle_input(_input),
+    pub fn get_menu<'a>(&'a mut self, menu: SettingsMenu) -> Option<&'a mut dyn SubMenuPointer> {
+        match menu {
+            SettingsMenu::MainMenu => Some(&mut self.main_menu),
+            _ => None,
         }
     }
 
-    fn handle_click(&mut self) -> Option<SettingsMenu> {
-        // Handle click and return next menu if applicable
-        None
+    pub fn get_menu_const<'a>(&'a self, menu: SettingsMenu) -> Option<&'a dyn SubMenuPointer> {
+        match menu {
+            SettingsMenu::MainMenu => Some(&self.main_menu),
+            _ => None,
+        }
     }
 }
 
@@ -100,6 +76,7 @@ impl SettingsState {
         Self {
             current_menu: None,
             rotor_position: 0,
+            states: SubMenuStates::new(),
         }
     }
 
@@ -107,7 +84,11 @@ impl SettingsState {
         self.current_menu.is_some()
     }
 
-    pub fn update<A, B, SW>(&mut self, encoder: &mut RotaryEncoder<A, B, SW>) -> bool
+    pub fn update<A, B, SW>(
+        &mut self,
+        sight: &mut Sight,
+        encoder: &mut RotaryEncoder<A, B, SW>,
+    ) -> bool
     where
         A: InputPin,
         B: InputPin,
@@ -115,7 +96,7 @@ impl SettingsState {
     {
         if encoder.is_pressed().is_ok_and(|pressed| pressed) {
             self.rotor_position = encoder.position();
-            self.handle_press()
+            self.handle_press(sight)
         } else {
             let position = encoder.position();
             let change = match (self.rotor_position, position) {
@@ -124,42 +105,51 @@ impl SettingsState {
                 _ => return false,
             };
             self.rotor_position = position;
-            self.handle_rotation(change)
+            self.handle_rotation(sight, change)
         }
     }
 
-    pub fn draw<DI>(&self, display: &mut DI)
+    pub fn draw<DI>(&self, display: &mut DI, sight: &Sight)
     where
         DI: DrawTarget<Color = Rgb565, Error: Debug>,
     {
         if let Some(menu) = &self.current_menu {
             let mut renderer = rendering::DefaultSettingsRenderer { display };
-            match menu {
-                SettingsMenu::MainMenu(sub_menu) => {
-                    sub_menu.draw(&mut renderer);
-                }
-            }
+            let sub_menu = self.states.get_menu_const(*menu).unwrap_or_else(|| {
+                panic!("No submenu found for {:?}", *menu);
+            });
+            sub_menu.draw(&mut renderer, sight);
         }
     }
 
-    fn handle_rotation(&mut self, change: RotorInput) -> bool {
+    fn handle_rotation(&mut self, sight: &mut Sight, change: RotorInput) -> bool {
         if let Some(menu) = self.current_menu.as_mut() {
-            menu.handle_input(change);
+            let sub_menu = self.states.get_menu(menu.clone()).unwrap_or_else(|| {
+                panic!("No submenu found for {:?}", menu);
+            });
+            sub_menu.handle_input(sight, change);
             true
         } else {
             false
         }
     }
 
-    fn handle_press(&mut self) -> bool {
+    fn handle_press(&mut self, sight: &mut Sight) -> bool {
         if let Some(menu) = self.current_menu.as_mut() {
-            if let Some(next_menu) = menu.handle_click() {
-                self.current_menu = Some(next_menu);
-            } else {
-                self.current_menu = None;
+            let sub_menu = self.states.get_menu(menu.clone()).unwrap_or_else(|| {
+                panic!("No submenu found for {:?}", menu);
+            });
+            match sub_menu.handle_click(sight) {
+                ClickResult::Navigate(next_menu) => {
+                    self.current_menu = Some(next_menu);
+                }
+                ClickResult::Back => {
+                    self.current_menu = None;
+                }
+                ClickResult::None => {}
             }
         } else {
-            self.current_menu = Some(SettingsMenu::MainMenu(MainSubMenu::new()));
+            self.current_menu = Some(SettingsMenu::MainMenu);
         }
         true
     }

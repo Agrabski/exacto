@@ -60,12 +60,12 @@ fn main() -> ! {
         encoder.update().unwrap();
         ufmt::uwriteln!(&mut serial, "position {}", encoder.position()).ok();
         last_update_loop += 1;
-        let settings_was_updated = settings_state.update(&mut encoder);
+        let settings_was_updated = settings_state.update(&mut sight, &mut encoder);
         if settings_was_updated || settings_state.is_open() {
             if settings_was_updated {
                 interface.clear();
-                settings_state.draw(&mut interface);
-                last_update_loop = 0;
+                settings_state.draw(&mut interface, &sight);
+                last_update_loop = 8000;
             }
         } else {
             let mut position = encoder.position();
@@ -76,7 +76,7 @@ fn main() -> ! {
             if sight.range != position as u8 {
                 sight.range = position as u8;
             }
-            if (last_update_loop > 1500 && last_sight != sight)
+            if (last_update_loop > 500 && last_sight != sight) || last_update_loop > 5000
                 || absolute_difference(last_sight.range, sight.range) > 8
             {
                 interface.clear();
