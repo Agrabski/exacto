@@ -10,6 +10,7 @@ use embedded_graphics_core::Drawable;
 pub enum TextType {
     Normal,
     Highlighted,
+    Selected
 }
 
 pub trait SettingsRenderer {
@@ -31,6 +32,7 @@ where
         let style = match text_type {
             TextType::Normal => MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE),
             TextType::Highlighted => MonoTextStyle::new(&FONT_6X10, Rgb565::YELLOW),
+            TextType::Selected => MonoTextStyle::new(&FONT_6X10, Rgb565::GREEN),
         };
         Text::new(text, Point::new(0, (row + 1) as i32 * 10), style)
             .draw(self.display)

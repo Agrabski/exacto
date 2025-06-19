@@ -5,22 +5,17 @@ mod ui;
 use crate::{
     encoder::RotaryEncoder,
     settings::{
-        rendering::SettingsRenderer,
-        sub_menus::main_menu::{MainMenuState, MainMenuType, MAIN_MENU},
-        ui::{ClickResult, SubMenuPointer, SubMenuPointerImpl},
+        sub_menus::{main_menu::{MainMenuState, MainMenuType, MAIN_MENU}, sight_menu::{SightMenu, SIGHT_MENU}},
+        ui::{settings_page::SettingsPageState, ClickResult, SubMenuPointer, SubMenuPointerImpl},
     },
     sight::Sight,
 };
-use core::{fmt::Debug, iter::Map, ops::Sub};
+use core::fmt::Debug;
 use embedded_graphics::{
-    mono_font::{ascii::FONT_6X10, MonoTextStyle},
     pixelcolor::Rgb565,
-    prelude::{DrawTarget, Point, RgbColor},
-    text::{renderer, Text},
+    prelude::DrawTarget,
 };
-use embedded_graphics_core::Drawable;
 use embedded_hal::digital::InputPin;
-use ufmt::derive;
 
 pub struct SettingsState {
     current_menu: Option<SettingsMenu>,
@@ -43,7 +38,8 @@ enum SettingsMenu {
 
 
 struct SubMenuStates {
-    main_menu: SubMenuPointerImpl<MainMenuState, MainMenuType>,
+    main_menu: SubMenuPointerImpl<MainMenuType>,
+    sight_settings: SubMenuPointerImpl<SightMenu>, // Placeholder for other submenus
 }
 
 impl SubMenuStates {
@@ -53,12 +49,17 @@ impl SubMenuStates {
                 submenu: &MAIN_MENU,
                 state: MainMenuState { selected_index: 0 },
             },
+            sight_settings: SubMenuPointerImpl {
+                submenu: &SIGHT_MENU,
+                state: SettingsPageState::new(),
+            },
         }
     }
 
     pub fn get_menu<'a>(&'a mut self, menu: SettingsMenu) -> Option<&'a mut dyn SubMenuPointer> {
         match menu {
             SettingsMenu::MainMenu => Some(&mut self.main_menu),
+            SettingsMenu::Sight => Some(&mut self.sight_settings),
             _ => None,
         }
     }
@@ -66,6 +67,7 @@ impl SubMenuStates {
     pub fn get_menu_const<'a>(&'a self, menu: SettingsMenu) -> Option<&'a dyn SubMenuPointer> {
         match menu {
             SettingsMenu::MainMenu => Some(&self.main_menu),
+            SettingsMenu::Sight => Some(&self.sight_settings),
             _ => None,
         }
     }

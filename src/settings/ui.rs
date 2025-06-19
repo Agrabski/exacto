@@ -1,3 +1,5 @@
+pub mod settings_page;
+
 use crate::{
     settings::{rendering::SettingsRenderer, RotorInput, SettingsMenu},
     sight::Sight,
@@ -22,7 +24,8 @@ pub enum ClickResult<TResult> {
     None,
 }
 
-impl Menu<NavigationMenuState> for NavigationMenu {
+impl Menu for NavigationMenu {
+    type TState = NavigationMenuState;
     fn handle_input(&self, state: &mut NavigationMenuState, _: &mut Sight, input: RotorInput) {
         state.selected_index = match input {
             RotorInput::Up => state.selected_index + 1,
@@ -57,10 +60,11 @@ impl Menu<NavigationMenuState> for NavigationMenu {
     }
 }
 
-pub trait Menu<TState> {
-    fn handle_input(&self, state: &mut TState, sight: &mut Sight, input: RotorInput);
-    fn handle_click(&self, state: &mut TState, sight: &mut Sight) -> ClickResult<SettingsMenu>;
-    fn draw(&self, state: &TState, display: &mut dyn SettingsRenderer, sight: &Sight);
+pub trait Menu {
+    type TState;
+    fn handle_input(&self, state: &mut Self::TState, sight: &mut Sight, input: RotorInput);
+    fn handle_click(&self, state: &mut Self::TState, sight: &mut Sight) -> ClickResult<SettingsMenu>;
+    fn draw(&self, state: &Self::TState, display: &mut dyn SettingsRenderer, sight: &Sight);
 }
 
 pub trait SubMenuPointer {
@@ -69,13 +73,13 @@ pub trait SubMenuPointer {
     fn draw(&self, display: &mut dyn SettingsRenderer, sight: &Sight);
 }
 
-pub struct SubMenuPointerImpl<TState,TMenu: Menu<TState> + 'static> {
+pub struct SubMenuPointerImpl<TMenu: Menu + 'static> {
     pub submenu: &'static TMenu,
-    pub state: TState
+    pub state: TMenu::TState,
 }
 
 
-impl SubMenuPointer for SubMenuPointerImpl<NavigationMenuState, NavigationMenu> {
+impl<TMenu: Menu + 'static> SubMenuPointer for SubMenuPointerImpl<TMenu> {
     fn handle_input(&mut self, sight: &mut Sight, input: RotorInput) {
         self.submenu.handle_input(&mut self.state, sight, input);
     }
