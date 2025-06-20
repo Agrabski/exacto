@@ -145,7 +145,7 @@ where
     .into_styled(
         PrimitiveStyleBuilder::new()
             .stroke_width(1)
-            .stroke_color(Rgb565::BLUE)
+            .stroke_color(Rgb565::RED)
             .build(),
     );
     adjusted.draw(interface).unwrap();
