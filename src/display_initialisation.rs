@@ -1,4 +1,5 @@
 use display_interface::DisplayError;
+use crate::embedded_graphics_transform::{ FlipY};
 use embedded_hal::delay::DelayNs;
 use ssd1351::mode::GraphicsMode;
 
@@ -83,7 +84,7 @@ pub fn create_display(
     mut rst: Pin<Output, Dynamic>,
     mut dc: Pin<Output, Dynamic>,
     miso: Pin<Input<PullUp>, PB4>,
-) -> GraphicsMode<SpiWrapper<PB2>> {
+) -> FlipY<GraphicsMode<SpiWrapper<PB2>>> {
     cs.set_low();
     dc.set_low();
     rst.set_low();
@@ -115,7 +116,8 @@ pub fn create_display(
         .unwrap();
 
     interface.init().unwrap();
-    return interface;
+    interface.clear();
+    return FlipY::new(interface);
 }
 
 fn send_u8(spi: &mut Spi, words: DataFormat<'_>) -> Result<(), DisplayError> {

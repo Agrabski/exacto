@@ -4,9 +4,12 @@ mod display_initialisation;
 mod encoder;
 mod settings;
 mod sight;
+mod embedded_graphics_transform;
 
 use core::fmt::Debug;
 
+use arduino_hal::hal::port::PB2;
+use embedded_graphics_transform::{FlipX, FlipY};
 use arduino_hal::default_serial;
 use embedded_graphics::mono_font::ascii::FONT_6X10;
 use embedded_graphics::mono_font::MonoTextStyle;
@@ -19,8 +22,9 @@ use embedded_graphics::{
     prelude::{Point, RgbColor},
 };
 use embedded_graphics_core::{prelude::Size, primitives::Rectangle};
+use ssd1351::mode::GraphicsMode;
 
-use crate::display_initialisation::create_display;
+use crate::display_initialisation::{create_display, SpiWrapper};
 use crate::encoder::RotaryEncoder;
 use crate::sight::Sight;
 
@@ -43,7 +47,7 @@ fn main() -> ! {
         battery_power: 15,
         range: 33,
     };
-    interface.clear();
+    interface.clear_oled();
     display_sight(&mut interface, &sight);
     let pin_a = pins.d2.into_pull_up_input();
     let pin_b = pins.d3.into_pull_up_input();
@@ -63,7 +67,7 @@ fn main() -> ! {
         let settings_was_updated = settings_state.update(&mut sight, &mut encoder);
         if settings_was_updated || settings_state.is_open() {
             if settings_was_updated {
-                interface.clear();
+                interface.clear_oled();
                 settings_state.draw(&mut interface, &sight);
                 last_update_loop = 8000;
             }
@@ -76,10 +80,11 @@ fn main() -> ! {
             if sight.range != position as u8 {
                 sight.range = position as u8;
             }
-            if (last_update_loop > 500 && last_sight != sight) || last_update_loop > 5000
+            if (last_update_loop > 500 && last_sight != sight)
+                || last_update_loop > 5000
                 || absolute_difference(last_sight.range, sight.range) > 8
             {
-                interface.clear();
+                interface.clear_oled();
                 display_sight(&mut interface, &sight);
                 last_update_loop = 0;
                 last_sight = sight;
@@ -144,6 +149,22 @@ where
             .build(),
     );
     adjusted.draw(interface).unwrap();
+
+    Rectangle::new(
+        Point::new(
+            0,
+            0,
+        ),
+         interface.bounding_box().size
+    )
+    .into_styled(
+        PrimitiveStyleBuilder::new()
+            .stroke_width(1)
+            .stroke_color(Rgb565::WHITE)
+            .build(),
+    )
+    .draw(interface)
+    .unwrap();
 }
 
 fn write_value<T>(interface: &mut T, value: u8, position: Point, buffer: &mut [u8])
