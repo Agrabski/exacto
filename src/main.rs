@@ -1,16 +1,15 @@
 #![no_std]
 #![no_main]
 mod display_initialisation;
+mod embedded_graphics_transform;
 mod encoder;
 mod settings;
 mod sight;
-mod embedded_graphics_transform;
 
 use core::fmt::Debug;
 
-use arduino_hal::hal::port::PB2;
-use embedded_graphics_transform::{FlipX, FlipY};
 use arduino_hal::default_serial;
+use arduino_hal::hal::port::PB2;
 use embedded_graphics::mono_font::ascii::FONT_6X10;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::prelude::{DrawTarget, Primitive};
@@ -22,6 +21,7 @@ use embedded_graphics::{
     prelude::{Point, RgbColor},
 };
 use embedded_graphics_core::{prelude::Size, primitives::Rectangle};
+use embedded_graphics_transform::{FlipX, FlipY};
 use ssd1351::mode::GraphicsMode;
 
 use crate::display_initialisation::{create_display, SpiWrapper};
@@ -150,21 +150,15 @@ where
     );
     adjusted.draw(interface).unwrap();
 
-    Rectangle::new(
-        Point::new(
-            0,
-            0,
-        ),
-         interface.bounding_box().size
-    )
-    .into_styled(
-        PrimitiveStyleBuilder::new()
-            .stroke_width(1)
-            .stroke_color(Rgb565::WHITE)
-            .build(),
-    )
-    .draw(interface)
-    .unwrap();
+    Rectangle::new(Point::new(0, 0), interface.bounding_box().size)
+        .into_styled(
+            PrimitiveStyleBuilder::new()
+                .stroke_width(1)
+                .stroke_color(Rgb565::WHITE)
+                .build(),
+        )
+        .draw(interface)
+        .unwrap();
 }
 
 fn write_value<T>(interface: &mut T, value: u8, position: Point, buffer: &mut [u8])
@@ -186,4 +180,17 @@ fn format_two_digit(num: u8, buf: &mut [u8]) {
     buf[len - 3] = b'0' + ((num / 100) % 10) as u8;
     buf[len - 2] = b'0' + ((num / 10) % 10) as u8;
     buf[len - 1] = b'0' + (num % 10) as u8;
+}
+
+fn format_two_digit_16(num: i16, buf: &mut [u8]) {
+    assert!(buf.len() >= 4, "Buffer must be at least 4 bytes long");
+
+
+    let len = buf.len();
+    let abs_num = num.abs() as u16; 
+
+    buf[len - 4] = if num < 0 { b'-' } else { b' ' };
+    buf[len - 3] = b'0' + ((abs_num / 100) % 10) as u8;
+    buf[len - 2] = b'0' + ((abs_num / 10) % 10) as u8;
+    buf[len - 1] = b'0' + (abs_num % 10) as u8;
 }

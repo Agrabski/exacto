@@ -23,6 +23,7 @@ pub struct SettingsState {
     states: SubMenuStates,
 }
 
+#[derive(Debug, Clone, Copy)]
 enum RotorInput {
     Up,
     Down,
