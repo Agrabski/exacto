@@ -20,6 +20,7 @@ display-interface = "0.5.0"
 embedded-graphics-core = { version = "0.4"}
 embedded-graphics = "0.8.1"
 ssd1351="0.5.0"
+const_format = "0.2.34"
 [dependencies.byte-slice-cast]
 version = "1.2.2"
 default-features = false

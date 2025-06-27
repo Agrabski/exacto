@@ -5,7 +5,7 @@ mod ui;
 use crate::{
     encoder::RotaryEncoder,
     settings::{
-        sub_menus::{main_menu::{MainMenuState, MainMenuType, MAIN_MENU}, sight_menu::{SightMenu, SIGHT_MENU}},
+        sub_menus::{about_page::{AboutPage, ABOUT_PAGE}, main_menu::{MainMenuState, MainMenuType, MAIN_MENU}, sight_menu::{SightMenu, SIGHT_MENU}},
         ui::{settings_page::SettingsPageState, ClickResult, SubMenuPointer, SubMenuPointerImpl},
     },
     sight::Sight,
@@ -41,6 +41,7 @@ enum SettingsMenu {
 struct SubMenuStates {
     main_menu: SubMenuPointerImpl<MainMenuType>,
     sight_settings: SubMenuPointerImpl<SightMenu>, // Placeholder for other submenus
+    about: SubMenuPointerImpl<AboutPage>, // Placeholder for the about submenu
 }
 
 impl SubMenuStates {
@@ -54,6 +55,10 @@ impl SubMenuStates {
                 submenu: &SIGHT_MENU,
                 state: SettingsPageState::new(),
             },
+            about: SubMenuPointerImpl {
+                submenu: &ABOUT_PAGE,
+                state: SettingsPageState::new(),
+            },
         }
     }
 
@@ -61,6 +66,7 @@ impl SubMenuStates {
         match menu {
             SettingsMenu::MainMenu => Some(&mut self.main_menu),
             SettingsMenu::Sight => Some(&mut self.sight_settings),
+            SettingsMenu::About => Some(&mut self .about),
             _ => None,
         }
     }
@@ -69,6 +75,7 @@ impl SubMenuStates {
         match menu {
             SettingsMenu::MainMenu => Some(&self.main_menu),
             SettingsMenu::Sight => Some(&self.sight_settings),
+            SettingsMenu::About => Some(&self .about),
             _ => None,
         }
     }

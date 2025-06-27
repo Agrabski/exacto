@@ -11,3 +11,5 @@
 | VCC  | Power (3.3V / 5V input)              |
 
 ![Display Pinout Diagram](./1.27inch-RGB-OLED-Module-details-5.jpg)
+
+![Display dimensions](./dimensions.png)

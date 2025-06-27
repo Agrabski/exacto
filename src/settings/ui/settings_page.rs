@@ -34,6 +34,35 @@ pub struct Slider {
     pub curr_value: fn(sight: &crate::sight::Sight) -> i16,
 }
 
+pub struct TextLine {
+    pub text: &'static str,
+}
+
+impl SettingsPageControl for TextLine {
+    fn handle_input(&self, _sight: &mut crate::sight::Sight, _input: crate::settings::RotorInput) {
+        // Text lines do not handle input
+    }
+
+    fn handle_click(
+        &self,
+        has_focus: bool,
+        _sight: &mut crate::sight::Sight,
+    ) -> SettingsPageClickResult {
+        SettingsPageClickResult::None
+    }
+
+    fn draw(
+        &self,
+        display: &mut dyn SettingsRenderer,
+        _sight: &crate::sight::Sight,
+        row: u8,
+        active: bool,
+        _focused: bool,
+    ) {
+        display.render_text(self.text, row, if active{ TextType::Highlighted} else { TextType::Normal });
+    }
+}
+
 impl SettingsPageControl for Slider {
     fn handle_input(&self, sight: &mut crate::sight::Sight, input: crate::settings::RotorInput) {
         let mut current_value = (self.curr_value)(sight);
@@ -88,7 +117,12 @@ impl SettingsPageControl for Slider {
             display.render_sight_preview(sight);
             let mut buffer = *b"ABCD";
             format_two_digit_16((self.curr_value)(sight), &mut buffer);
-            display.render_aditional_text(str::from_utf8(&buffer).unwrap(), row, TextType::Normal, 4);
+            display.render_aditional_text(
+                str::from_utf8(&buffer).unwrap(),
+                row,
+                TextType::Normal,
+                4,
+            );
         }
     }
 }

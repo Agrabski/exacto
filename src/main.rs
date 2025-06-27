@@ -9,7 +9,6 @@ mod sight;
 use core::fmt::Debug;
 
 use arduino_hal::default_serial;
-use arduino_hal::hal::port::PB2;
 use embedded_graphics::mono_font::ascii::FONT_6X10;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::prelude::{DrawTarget, Primitive};
@@ -21,10 +20,8 @@ use embedded_graphics::{
     prelude::{Point, RgbColor},
 };
 use embedded_graphics_core::{prelude::Size, primitives::Rectangle};
-use embedded_graphics_transform::{FlipX, FlipY};
-use ssd1351::mode::GraphicsMode;
 
-use crate::display_initialisation::{create_display, SpiWrapper};
+use crate::display_initialisation::create_display;
 use crate::encoder::RotaryEncoder;
 use crate::sight::Sight;
 
