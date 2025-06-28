@@ -116,13 +116,9 @@ where
     T: DrawTarget<Color = Rgb565, Error: Debug>,
 {
     let reticle_size: u8 = 8;
-    let position_x = (128 / 2 + sight.x_zero) as u8;
-    let position_y = (96 / 2 + sight.y_zero) as u8;
-    let r = Rectangle::new(
-        Point::new(
-            (position_x - reticle_size / 2) as i32,
-            (position_y - reticle_size / 2) as i32,
-        ),
+    let center = sight.point_of_aim();
+    let r = Rectangle::with_center(
+        center,
         Size::new(reticle_size as u32, reticle_size as u32),
     )
     .into_styled(
@@ -132,11 +128,9 @@ where
             .build(),
     );
     r.draw(interface).unwrap();
-    let adjusted = Rectangle::new(
-        Point::new(
-            (position_x - reticle_size / 4) as i32,
-            (position_y - reticle_size / 4 + sight.range / 2) as i32,
-        ),
+    let point_of_impact = sight.calculated_point_of_impact();
+    let adjusted = Rectangle::with_center(
+        point_of_impact,
         Size::new((reticle_size / 2) as u32, (reticle_size / 2) as u32),
     )
     .into_styled(
