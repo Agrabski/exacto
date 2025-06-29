@@ -5,6 +5,8 @@ mod embedded_graphics_transform;
 mod encoder;
 mod settings;
 mod sight;
+mod ballistic_calculator;
+mod physics;
 
 use core::fmt::Debug;
 

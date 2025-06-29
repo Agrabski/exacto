@@ -21,6 +21,8 @@ embedded-graphics-core = { version = "0.4"}
 embedded-graphics = "0.8.1"
 ssd1351="0.5.0"
 const_format = "0.2.34"
+simple-si-units = "1.1.1"
+libm = "0.2.15"
 [dependencies.byte-slice-cast]
 version = "1.2.2"
 default-features = false

@@ -219,8 +219,10 @@ dependencies = [
  "embedded-graphics",
  "embedded-graphics-core",
  "embedded-hal 1.0.0",
+ "libm",
  "nb 1.1.0",
  "panic-halt",
+ "simple-si-units",
  "ssd1351",
  "ufmt",
 ]
@@ -233,6 +235,12 @@ checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
 dependencies = [
  "num-traits",
 ]
+
+[[package]]
+name = "libm"
+version = "0.2.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
 
 [[package]]
 name = "micromath"
@@ -292,6 +300,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "simple-si-units"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11c7259c2c96dcab51b396e0f8e4105188b3c5d1b8642ed0459f8694cbf530c6"
+dependencies = [
+ "simple-si-units-core",
+ "simple-si-units-macros",
+]
+
+[[package]]
+name = "simple-si-units-core"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20922e40da38f15cabde5ff63c9de4cb31f5a8145db37c22afe1a9f3ca4d82e5"
+
+[[package]]
+name = "simple-si-units-macros"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12ea4411b5c48855d407587336402072c8b5b06e503269a3ff0196ff3b8c127a"
+dependencies = [
+ "quote",
+ "simple-si-units-core",
+ "syn",
 ]
 
 [[package]]
