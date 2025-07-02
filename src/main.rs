@@ -23,6 +23,7 @@ use embedded_graphics::{
 };
 use embedded_graphics_core::{prelude::Size, primitives::Rectangle};
 
+use crate::ballistic_calculator::BBDrift;
 use crate::display_initialisation::create_display;
 use crate::encoder::RotaryEncoder;
 use crate::sight::Sight;
@@ -45,6 +46,9 @@ fn main() -> ! {
         y_zero: 0,
         battery_power: 15,
         range: 33,
+        last_range: 0,
+        drift: BBDrift::default(),
+        configuration: ballistic_calculator::CalculatorConfiguration::default(),
     };
     interface.clear_oled();
     display_sight(&mut interface, &sight);
@@ -78,6 +82,7 @@ fn main() -> ! {
             }
             if sight.range != position as u8 {
                 sight.range = position as u8;
+                sight.update();
             }
             if (last_update_loop > 500 && last_sight != sight)
                 || last_update_loop > 5000

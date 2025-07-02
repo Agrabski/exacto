@@ -5,6 +5,7 @@ authors = ["AGrabski <adam.gr@outlook.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
+
 [[bin]]
 name = "exacto"
 test = false
@@ -43,9 +44,10 @@ opt-level = "s"
 [profile.release]
 panic = "abort"
 codegen-units = 1
-debug = true
+debug = false
 lto = true
-opt-level = "s"
+opt-level = "z"
+strip = true  # Automatically strip symbols from the binary.
 
 [features]
 default = ["graphics"]

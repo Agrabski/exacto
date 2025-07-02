@@ -2,15 +2,15 @@ use core::{f32, ops::Mul};
 
 use arduino_hal::pac::TC2;
 use simple_si_units::{
-    base::Mass, geometry::Area, mechanical::{Density, Energy, Force, Velocity}, NumLike
+    base::{Distance, Mass},
+    geometry::Area,
+    mechanical::{AngularVelocity, Density, Energy, Force, Velocity},
+    NumLike,
 };
 
-pub trait Float:
-    NumLike + Copy + PartialOrd + From<f32> + Mul<Output = Self> + Sized
-{
+pub trait Float: NumLike + Copy + PartialOrd + From<f32> + Mul<Output = Self> + Sized {
     fn sqrt(self) -> Self;
 }
-
 
 impl Float for f32 {
     fn sqrt(self) -> Self {
@@ -20,10 +20,9 @@ impl Float for f32 {
 
 impl Float for f64 {
     fn sqrt(self) -> Self {
-       libm::sqrt(self)
+        libm::sqrt(self)
     }
 }
-
 
 pub trait EnergyPhysics<TNumber: Float> {
     fn velocity_from_kinetic_energy(&self, mass: Mass<TNumber>) -> Velocity<TNumber>;
@@ -38,8 +37,7 @@ impl<TNumber: Float> EnergyPhysics<TNumber> for Energy<TNumber> {
     }
 }
 
-
-pub fn drag_force<TNumber : Float>(
+pub fn drag_force<TNumber: Float>(
     velocity: Velocity<TNumber>,
     drag_coefficient: TNumber,
     air_density: Density<TNumber>,
@@ -47,5 +45,16 @@ pub fn drag_force<TNumber : Float>(
 ) -> Force<TNumber> {
     // Drag force formula: Fd = 0.5 * Cd * rho * A * v^2
     let v_squared = velocity.mps * velocity.mps;
-    0.5 * drag_coefficient * air_density * area * v_squared
+    Force::<TNumber>::from_N(
+        TNumber::from(0.5) * drag_coefficient * air_density.kgpm3 * area.m2 * v_squared,
+    )
+}
+
+pub fn magnus_force<TNumber: Float>(
+    velocity: Velocity<TNumber>,
+    angular_velocity: AngularVelocity<TNumber>,
+    air_density: Density<TNumber>,
+    radius: Distance<TNumber>,
+) -> Force<TNumber> {
+    Force::<TNumber>::from_N(TNumber::from(0.5) * air_density.kgpm3 * (radius*radius * radius).m3 * velocity.mps * angular_velocity.radps)
 }
