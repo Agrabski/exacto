@@ -165,7 +165,7 @@ where
     let style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
 
     format_two_digit(value, buffer);
-    Text::new(str::from_utf8(&buffer).unwrap(), position, style)
+    Text::new(unsafe { str::from_utf8_unchecked(&buffer) }, position, style)
         .draw(interface)
         .unwrap();
 }
