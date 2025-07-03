@@ -118,7 +118,7 @@ impl SettingsPageControl for Slider {
             let mut buffer = *b"ABCD";
             format_two_digit_16((self.curr_value)(sight), &mut buffer);
             display.render_aditional_text(
-                str::from_utf8(&buffer).unwrap(),
+                unsafe { str::from_utf8_unchecked(&buffer) },
                 row,
                 TextType::Normal,
                 4,
