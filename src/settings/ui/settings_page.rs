@@ -1,4 +1,3 @@
-use embedded_graphics::prelude::Point;
 
 use crate::{
     format_two_digit_16,
@@ -147,7 +146,7 @@ impl SettingsPageControl for NavigationButton {
         _sight: &crate::sight::Sight,
         row: u8,
         active: bool,
-        focused: bool,
+        _focused: bool,
     ) {
         display.render_text(self.label, row, {
             if active {

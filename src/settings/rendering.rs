@@ -3,7 +3,7 @@ use embedded_graphics::{
     mono_font::{ascii::FONT_4X6, MonoTextStyle},
     pixelcolor::Rgb565,
     prelude::{DrawTarget, Point, RgbColor},
-    text::{renderer::CharacterStyle, Text},
+    text::{self, renderer::CharacterStyle, Text},
 };
 use embedded_graphics_core::Drawable;
 
@@ -33,27 +33,38 @@ where
     TGraphicsInterface: DrawTarget<Color = Rgb565, Error: Debug>,
 {
     fn render_text(&mut self, text: &str, row: u8, text_type: TextType) {
-        let style = pick_text_style(text_type);
-        Text::new(text, Point::new(0, ((row + 1) * 6)as i32), style)
-            .draw(self.display)
-            .unwrap();
+        self.render_text_inner(
+            text,
+            Point::new(0, ((row + 1) * 6) as i32),
+            text.len() as u8,
+            text_type,
+        );
     }
+
     fn render_aditional_text(&mut self, text: &str, row: u8, text_type: TextType, length: u8) {
-        let style = pick_text_style(text_type);
-        Text::new(
+        self.render_text_inner(
             text,
             Point::new(
-                (self.display.bounding_box().size.width as u8 - length* 4) as i32,
+                (self.display.bounding_box().size.width as u8 - length * 4) as i32,
                 ((row + 1) * 6) as i32,
             ),
-            style,
-        )
-        .draw(self.display)
-        .unwrap();
+            length,
+            text_type,
+        );
     }
 
     fn render_sight_preview(&mut self, sight: &crate::sight::Sight) {
         draw_reticle(self.display, sight);
+    }
+}
+
+impl<'a, TGraphicsInterface> DefaultSettingsRenderer<'a, TGraphicsInterface>
+where
+    TGraphicsInterface: DrawTarget<Color = Rgb565, Error: Debug>,
+{
+    fn render_text_inner(&mut self, text: &str, position: Point, _length: u8, text_type: TextType) {
+        let style = pick_text_style(text_type);
+        Text::new(text, position, style).draw(self.display).unwrap();
     }
 }
 
@@ -73,4 +84,3 @@ fn pick_text_style(text_type: TextType) -> MonoTextStyle<'static, Rgb565> {
     };
     style
 }
-

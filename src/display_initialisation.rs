@@ -4,10 +4,9 @@ use embedded_hal::delay::DelayNs;
 use ssd1351::mode::GraphicsMode;
 
 use arduino_hal::{
-    hal::{
-        self,
-        port::{self, Dynamic, PB2, PB3, PB4, PB5},
-    },
+    hal::
+        port::{self, Dynamic, PB2, PB3, PB4, PB5}
+    ,
     pac::SPI,
     port::{
         mode::{Input, Output, PullUp},
@@ -16,7 +15,6 @@ use arduino_hal::{
     spi::{ChipSelectPin, DataOrder, SerialClockRate},
     Spi,
 };
-use byte_slice_cast::AsByteSlice;
 use display_interface::{DataFormat, WriteOnlyDataCommand};
 use embedded_hal::spi::{SpiBus, MODE_0};
 use panic_halt as _;

@@ -1,12 +1,13 @@
 #![no_std]
 #![no_main]
+mod ballistic_calculator;
 mod display_initialisation;
 mod embedded_graphics_transform;
 mod encoder;
+mod physics;
 mod settings;
 mod sight;
-mod ballistic_calculator;
-mod physics;
+mod fraction;
 
 use core::fmt::Debug;
 
@@ -78,9 +79,7 @@ fn main() -> ! {
                 sight.range = position as u8;
                 sight.update();
             }
-            if (last_update_loop > 500)
-                || last_update_loop > 5000
-            {
+            if (last_update_loop > 500) || last_update_loop > 5000 {
                 interface.clear_oled();
                 display_sight(&mut interface, &sight);
                 last_update_loop = 0;
@@ -110,31 +109,28 @@ fn draw_reticle<T>(interface: &mut T, sight: &Sight)
 where
     T: DrawTarget<Color = Rgb565, Error: Debug>,
 {
-    let reticle_size: u8 = 8;
+    let reticle_size: u32 = 8;
     let center = sight.point_of_aim();
-    let r = Rectangle::with_center(
-        center,
-        Size::new(reticle_size as u32, reticle_size as u32),
-    )
-    .into_styled(
+    draw_rectangle(interface, Rectangle::with_center(center, Size::new(reticle_size, reticle_size)));
+
+    let point_of_impact = sight.calculated_point_of_impact();
+    draw_rectangle(interface,  Rectangle::with_center(
+        point_of_impact,
+        Size::new((reticle_size / 2), (reticle_size / 2)),
+    ));
+}
+
+fn draw_rectangle<T>(interface: &mut T, rectangle: Rectangle)
+where
+    T: DrawTarget<Color = Rgb565, Error: Debug>,
+{
+    let r = rectangle.into_styled(
         PrimitiveStyleBuilder::new()
             .stroke_width(1)
             .stroke_color(Rgb565::RED)
             .build(),
     );
     r.draw(interface).unwrap();
-    let point_of_impact = sight.calculated_point_of_impact();
-    let adjusted = Rectangle::with_center(
-        point_of_impact,
-        Size::new((reticle_size / 2) as u32, (reticle_size / 2) as u32),
-    )
-    .into_styled(
-        PrimitiveStyleBuilder::new()
-            .stroke_width(1)
-            .stroke_color(Rgb565::RED)
-            .build(),
-    );
-    adjusted.draw(interface).unwrap();
 }
 
 fn write_value<T>(interface: &mut T, value: u8, position: Point, buffer: &mut [u8])
@@ -144,17 +140,20 @@ where
     let style = MonoTextStyle::new(&FONT_4X6, Rgb565::WHITE);
 
     format_two_digit_16(value as i16, buffer);
-    Text::new(unsafe { str::from_utf8_unchecked(&buffer) }, position, style)
-        .draw(interface)
-        .unwrap();
+    Text::new(
+        unsafe { str::from_utf8_unchecked(&buffer) },
+        position,
+        style,
+    )
+    .draw(interface)
+    .unwrap();
 }
 
 fn format_two_digit_16(num: i16, buf: &mut [u8]) {
     assert!(buf.len() >= 4, "Buffer must be at least 4 bytes long");
 
-
     let len = buf.len();
-    let abs_num = num.abs() as u16; 
+    let abs_num = num.abs() as u16;
 
     buf[len - 4] = if num < 0 { b'-' } else { b' ' };
     buf[len - 3] = b'0' + ((abs_num / 100) % 10) as u8;
