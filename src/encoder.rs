@@ -14,7 +14,7 @@ where
     pin_b: B,
     pin_sw: SW,
     last_a: bool,
-    position: i32,
+    position: i16,
 }
 
 impl<A, B, SW> RotaryEncoder<A, B, SW>
@@ -54,7 +54,7 @@ where
     }
 
     /// Returns the current position counter.
-    pub fn position(&self) -> i32 {
+    pub fn position(&self) -> i16 {
         self.position
     }
 

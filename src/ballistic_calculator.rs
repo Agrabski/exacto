@@ -1,20 +1,20 @@
 use crate::physics::{drag_force, magnus_force, velocity_from_kinetic_energy};
 
-type Float = f64;
+type Float = f32;
 
 const PI: Float = 3.141592653;
+const BB_DIAMETER: Float = 6.0 / 1000.0;
+const SIMULATION_STEP: Float = 1.0;
 
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CalculatorConfiguration {
     pub gravity: Float,                        // m/s^2
     pub air_density: Float,                    // kg/m^3
     pub drag_coefficient: Float,               // dimensionless
     pub magnus_effect_angular_velocity: Float, // rad/s
     pub bb_weight: Float,                      // grams
-    pub bb_diameter: Float,                    // mm
     pub muzzle_energy: Float,                  // Joules
     pub angle_of_elevation: Float,
-    pub simulation_step: Float,
 }
 
 impl Default for CalculatorConfiguration {
@@ -25,15 +25,13 @@ impl Default for CalculatorConfiguration {
             drag_coefficient: 0.43,                 // typical for a spinning sphere
             magnus_effect_angular_velocity: (15.0), // rad/s
             bb_weight: (0.4 / 1000.0),
-            bb_diameter: (6.0) / 1000.0, // 6 mm
             muzzle_energy: (1.9),        // 1.5 Joules
             angle_of_elevation: 0.0,
-            simulation_step: (1.0), // 10 cm step
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BBDrift {
     pub drift_x: Float, // meters
     pub drift_y: Float, // meters
@@ -69,7 +67,7 @@ pub fn calculate_drift(
     let mut drift_x = (0.0);
     let mut drift_y = (0.0);
 
-    let step = config.simulation_step;
+    let step = SIMULATION_STEP;
     let mut traveled = (0.0);
 
     while traveled < range && state.kinetic_energy > 0.0 {
@@ -79,7 +77,7 @@ pub fn calculate_drift(
         }
 
         // Drag force: Fd = 0.5 * Cd * rho * A * v^2
-        let radius = config.bb_diameter / 2.0; // mm to meters
+        let radius = BB_DIAMETER / 2.0; // mm to meters
         let area = PI * radius * radius;
         let drag_force = drag_force(v, config.drag_coefficient, config.air_density, area);
 

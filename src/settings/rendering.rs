@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 use embedded_graphics::{
-    mono_font::{ascii::FONT_6X10, MonoTextStyle},
+    mono_font::{ascii::FONT_4X6, MonoTextStyle},
     pixelcolor::Rgb565,
     prelude::{DrawTarget, Point, RgbColor},
     text::{renderer::CharacterStyle, Text},
@@ -17,7 +17,7 @@ pub enum TextType {
 
 pub trait SettingsRenderer {
     fn render_text(&mut self, text: &str, row: u8, text_type: TextType);
-    fn render_aditional_text(&mut self, text: &str, row: u8, text_type: TextType, length: i32);
+    fn render_aditional_text(&mut self, text: &str, row: u8, text_type: TextType, length: u8);
     fn render_sight_preview(&mut self, sight: &crate::sight::Sight);
 }
 
@@ -34,17 +34,17 @@ where
 {
     fn render_text(&mut self, text: &str, row: u8, text_type: TextType) {
         let style = pick_text_style(text_type);
-        Text::new(text, Point::new(0, (row + 1) as i32 * 10), style)
+        Text::new(text, Point::new(0, ((row + 1) * 6)as i32), style)
             .draw(self.display)
             .unwrap();
     }
-    fn render_aditional_text(&mut self, text: &str, row: u8, text_type: TextType, length: i32) {
+    fn render_aditional_text(&mut self, text: &str, row: u8, text_type: TextType, length: u8) {
         let style = pick_text_style(text_type);
         Text::new(
             text,
             Point::new(
-                self.display.bounding_box().size.width as i32 - length* 6,
-                (row + 1) as i32 * 10,
+                (self.display.bounding_box().size.width as u8 - length* 4) as i32,
+                ((row + 1) * 6) as i32,
             ),
             style,
         )
@@ -59,17 +59,18 @@ where
 
 fn pick_text_style(text_type: TextType) -> MonoTextStyle<'static, Rgb565> {
     let style = match text_type {
-        TextType::Normal => MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE),
+        TextType::Normal => MonoTextStyle::new(&FONT_4X6, Rgb565::WHITE),
         TextType::Highlighted => {
-            let mut style = MonoTextStyle::new(&FONT_6X10, Rgb565::RED);
+            let mut style = MonoTextStyle::new(&FONT_4X6, Rgb565::RED);
             style.set_background_color(Some(Rgb565::GREEN));
             style
         }
         TextType::Selected => {
-            let mut style = MonoTextStyle::new(&FONT_6X10, Rgb565::GREEN);
+            let mut style = MonoTextStyle::new(&FONT_4X6, Rgb565::GREEN);
             style.set_background_color(Some(Rgb565::RED));
             style
         }
     };
     style
 }
+

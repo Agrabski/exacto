@@ -1,5 +1,5 @@
+use crate::embedded_graphics_transform::FlipY;
 use display_interface::DisplayError;
-use crate::embedded_graphics_transform::{ FlipY};
 use embedded_hal::delay::DelayNs;
 use ssd1351::mode::GraphicsMode;
 
@@ -59,19 +59,9 @@ where
     }
 }
 
-struct DelayShim<WriteFn>
-where
-    WriteFn: FnMut(u32),
-{
-    delay: arduino_hal::hal::delay::Delay<hal::clock::MHz24>,
-    log: WriteFn,
-}
-impl<WriteFn> DelayNs for DelayShim<WriteFn>
-where
-    WriteFn: FnMut(u32),
-{
+struct DelayShim;
+impl DelayNs for DelayShim {
     fn delay_ns(&mut self, ns: u32) {
-        (self.log)(ns);
         arduino_hal::delay_ns(ns);
     }
 }
@@ -108,10 +98,7 @@ pub fn create_display(
     interface
         .reset(
             &mut rst,
-            &mut DelayShim {
-                delay: arduino_hal::hal::delay::Delay::<hal::clock::MHz24>::new(),
-                log: |_| {},
-            },
+            &mut DelayShim
         )
         .unwrap();
 
@@ -123,6 +110,7 @@ pub fn create_display(
 fn send_u8(spi: &mut Spi, words: DataFormat<'_>) -> Result<(), DisplayError> {
     match words {
         DataFormat::U8(slice) => spi.write(slice).map_err(|_| DisplayError::BusWriteError),
+        /*
         DataFormat::U16(slice) => spi
             .write(slice.as_byte_slice())
             .map_err(|_| DisplayError::BusWriteError),
@@ -206,6 +194,7 @@ fn send_u8(spi: &mut Spi, words: DataFormat<'_>) -> Result<(), DisplayError> {
 
             Ok(())
         }
+        */
         _ => Err(DisplayError::DataFormatNotImplemented),
     }
 }

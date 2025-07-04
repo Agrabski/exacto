@@ -25,26 +25,6 @@ impl Float for f32 {
     }
 }
 
-impl Float for f64 {
-    fn sqrt(self) -> Self {
-        if self < 0.0 {
-            return 0.0; // no sqrt for negative numbers in real numbers
-        }
-        if self == 0.0 {
-            return 0.0;
-        }
-
-        // Initial guess (good enough for most ranges)
-        let mut x = self * 0.5;
-
-        // Perform 5 iterations of Newton-Raphson
-        for _ in 0..5 {
-            x = 0.5 * (x + self / x);
-        }
-
-        x
-    }
-}
 
 pub fn velocity_from_kinetic_energy<TNumber: Float>(energy: TNumber, mass: TNumber) -> TNumber {
     let velocity_mps = (TNumber::from(2.0) * energy / mass).sqrt();

@@ -19,7 +19,7 @@ use embedded_hal::digital::InputPin;
 
 pub struct SettingsState {
     current_menu: Option<SettingsMenu>,
-    rotor_position: i32,
+    rotor_position: i16,
     states: SubMenuStates,
 }
 
@@ -126,7 +126,7 @@ impl SettingsState {
         if let Some(menu) = &self.current_menu {
             let mut renderer = rendering::DefaultSettingsRenderer { display };
             let sub_menu = self.states.get_menu_const(*menu).unwrap_or_else(|| {
-                panic!("No submenu found for {:?}", *menu);
+                panic!();
             });
             sub_menu.draw(&mut renderer, sight);
         }
@@ -135,7 +135,7 @@ impl SettingsState {
     fn handle_rotation(&mut self, sight: &mut Sight, change: RotorInput) -> bool {
         if let Some(menu) = self.current_menu.as_mut() {
             let sub_menu = self.states.get_menu(menu.clone()).unwrap_or_else(|| {
-                panic!("No submenu found for {:?}", menu);
+                panic!();
             });
             sub_menu.handle_input(sight, change);
             true
@@ -147,7 +147,7 @@ impl SettingsState {
     fn handle_press(&mut self, sight: &mut Sight) -> bool {
         if let Some(menu) = self.current_menu.as_mut() {
             let sub_menu = self.states.get_menu(menu.clone()).unwrap_or_else(|| {
-                panic!("No submenu found for {:?}", menu);
+                panic!();
             });
             match sub_menu.handle_click(sight) {
                 ClickResult::Navigate(next_menu) => {

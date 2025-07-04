@@ -1,7 +1,7 @@
 use embedded_graphics::prelude::Point;
 
 use crate::{
-    format_two_digit, format_two_digit_16,
+    format_two_digit_16,
     settings::{
         rendering::{SettingsRenderer, TextType},
         ui::{ClickResult, Menu},
@@ -18,7 +18,7 @@ pub enum SettingsPageClickResult {
 }
 
 pub trait SettingsPage {
-    fn controls(&self) -> [Option<&dyn SettingsPageControl>; 6];
+    fn controls(&self) -> [Option<&dyn SettingsPageControl>; 4];
 }
 
 pub struct NavigationButton {

@@ -2,10 +2,10 @@ use embedded_graphics::prelude::Point;
 
 use crate::ballistic_calculator::{calculate_drift, BBDrift, CalculatorConfiguration};
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone)]
 pub struct Sight {
-    pub x_zero: i16,
-    pub y_zero: i16,
+    pub x_zero: i8,
+    pub y_zero: i8,
     pub battery_power: u8,
     pub range: u8,
     pub last_range: u8,
@@ -16,7 +16,7 @@ pub struct Sight {
 impl Sight {
     pub fn point_of_aim(&self) -> Point {
         Point::new(
-            (128 / 2 + self.x_zero) as i32,
+            (64 + self.x_zero) as i32,
             (96 / 2 + self.y_zero) as i32,
         )
     }
@@ -37,6 +37,6 @@ impl Sight {
     }
 }
 
-fn to_pixels(range: u8, drift: f64, axis_size :u8) -> i32 {
-    (drift * axis_size as f64/ (3.14* (range as f64) /4.0)) as i32
+fn to_pixels(range: u8, drift: f32, axis_size :u8) -> i32 {
+    (drift * axis_size as f32/ (3.14* (range as f32) /4.0)) as i32
 }

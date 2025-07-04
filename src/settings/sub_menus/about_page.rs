@@ -5,28 +5,22 @@ use crate::settings::ui::{
 use const_format::formatcp;
 
 pub struct AboutPage {
-    name: TextLine,
     version: TextLine,
     author: TextLine,
     exit: NavigationButton,
 }
 
 impl SettingsPage for AboutPage {
-    fn controls(&self) -> [Option<&dyn SettingsPageControl>; 6] {
+    fn controls(&self) -> [Option<&dyn SettingsPageControl>; 4] {
         [
-            Some(&self.name),
             Some(&self.version),
             Some(&self.author),
             Some(&self.exit),
-            None,
-            None,
+            None
         ]
     }
 }
 pub const ABOUT_PAGE: AboutPage = AboutPage {
-    name: TextLine {
-        text: "Name: Exacto",
-    },
     version: TextLine {
         text: formatcp!("Firmware Version: {}", env!("CARGO_PKG_VERSION")),
     },
