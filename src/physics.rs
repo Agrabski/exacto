@@ -1,60 +1,79 @@
-use core::{f32, ops::Mul};
+use core::{f32, ops::{Div, Mul}};
 
-use arduino_hal::pac::TC2;
-use simple_si_units::{
-    base::{Distance, Mass},
-    geometry::Area,
-    mechanical::{AngularVelocity, Density, Energy, Force, Velocity},
-    NumLike,
-};
-
-pub trait Float: NumLike + Copy + PartialOrd + From<f32> + Mul<Output = Self> + Sized {
+pub trait Float: Copy + PartialOrd + From<f32> + Mul<Output = Self> + Div<Output = Self> + Sized {
     fn sqrt(self) -> Self;
 }
 
 impl Float for f32 {
     fn sqrt(self) -> Self {
-        libm::sqrt(self.into()) as f32
+        if self < 0.0 {
+            return f32::NAN; // no sqrt for negative numbers in real numbers
+        }
+        if self == 0.0 {
+            return 0.0;
+        }
+
+        // Initial guess (good enough for most ranges)
+        let mut x = self * 0.5;
+
+        // Perform 5 iterations of Newton-Raphson
+        for _ in 0..5 {
+            x = 0.5 * (x + self / x);
+        }
+
+        x
     }
 }
 
 impl Float for f64 {
     fn sqrt(self) -> Self {
-        libm::sqrt(self)
+        if self < 0.0 {
+            return 0.0; // no sqrt for negative numbers in real numbers
+        }
+        if self == 0.0 {
+            return 0.0;
+        }
+
+        // Initial guess (good enough for most ranges)
+        let mut x = self * 0.5;
+
+        // Perform 5 iterations of Newton-Raphson
+        for _ in 0..5 {
+            x = 0.5 * (x + self / x);
+        }
+
+        x
     }
 }
 
-pub trait EnergyPhysics<TNumber: Float> {
-    fn velocity_from_kinetic_energy(&self, mass: Mass<TNumber>) -> Velocity<TNumber>;
-}
-
-impl<TNumber: Float> EnergyPhysics<TNumber> for Energy<TNumber> {
-    fn velocity_from_kinetic_energy(&self, mass: Mass<TNumber>) -> Velocity<TNumber> {
-        // Kinetic energy formula: KE = 0.5 * m * v^2
-        // Rearranged to find velocity: v = sqrt(2 * KE / m)
-        let velocity_mps = (TNumber::from(2.0) * self.to_J() / mass.kg).sqrt();
-        Velocity::from_mps(velocity_mps)
-    }
+pub fn velocity_from_kinetic_energy<TNumber: Float>(energy: TNumber, mass: TNumber) -> TNumber {
+    let velocity_mps = (TNumber::from(2.0) * energy / mass).sqrt();
+    velocity_mps
 }
 
 pub fn drag_force<TNumber: Float>(
-    velocity: Velocity<TNumber>,
+    velocity: TNumber,
     drag_coefficient: TNumber,
-    air_density: Density<TNumber>,
-    area: Area<TNumber>,
-) -> Force<TNumber> {
+    air_density: TNumber,
+    area: TNumber,
+) -> TNumber {
     // Drag force formula: Fd = 0.5 * Cd * rho * A * v^2
-    let v_squared = velocity.mps * velocity.mps;
-    Force::<TNumber>::from_N(
-        TNumber::from(0.5) * drag_coefficient * air_density.kgpm3 * area.m2 * v_squared,
-    )
+    let v_squared = velocity * velocity;
+    
+        TNumber::from(0.5) * drag_coefficient * air_density * area * v_squared
+    
 }
 
 pub fn magnus_force<TNumber: Float>(
-    velocity: Velocity<TNumber>,
-    angular_velocity: AngularVelocity<TNumber>,
-    air_density: Density<TNumber>,
-    radius: Distance<TNumber>,
-) -> Force<TNumber> {
-    Force::<TNumber>::from_N(TNumber::from(0.5) * air_density.kgpm3 * (radius*radius * radius).m3 * velocity.mps * angular_velocity.radps)
+    velocity: TNumber,
+    angular_velocity: TNumber,
+    air_density: TNumber,
+    radius: TNumber,
+) -> TNumber {
+    
+        TNumber::from(0.5)
+            * air_density
+            * (radius * radius * radius)
+            * velocity
+            * angular_velocity
 }

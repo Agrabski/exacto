@@ -1,5 +1,4 @@
 use embedded_graphics::prelude::Point;
-use simple_si_units::base::Distance;
 
 use crate::ballistic_calculator::{calculate_drift, BBDrift, CalculatorConfiguration};
 
@@ -32,12 +31,12 @@ impl Sight {
         }
         self.drift = calculate_drift(
             &self.configuration,
-            Distance::from_meters(self.range.into()),
+            (self.range.into()),
         );
         self.last_range = self.range;
     }
 }
 
-fn to_pixels(range: u8, drift: Distance<f64>, axis_size :u8) -> i32 {
-    (drift.to_meters() * axis_size as f64/ (3.14* (range as f64) /4.0)) as i32
+fn to_pixels(range: u8, drift: f64, axis_size :u8) -> i32 {
+    (drift * axis_size as f64/ (3.14* (range as f64) /4.0)) as i32
 }
