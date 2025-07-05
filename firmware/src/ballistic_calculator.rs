@@ -1,15 +1,13 @@
-use crate::{
-    fraction::Fraction,
-    physics::{drag_force, magnus_force, velocity_from_kinetic_energy},
-};
+use crate::physics::{drag_force, magnus_force, velocity_from_kinetic_energy};
+use fraction::Fraction;
 
 pub type Float = Fraction<i32>;
 
-pub const PI: Float = Float{
+pub const PI: Float = Float {
     numerator: 22,
-    denominator: 7
+    denominator: 7,
 };
-const BB_DIAMETER: Float = Float::new(6,  1000);
+const BB_DIAMETER: Float = Float::new(6, 1000);
 const SIMULATION_STEP: Float = Float::new(1, 1);
 const GRAVITY: Float = Float::new(981, 100);
 const AIR_DENSITY: Float = Float::new(18, 10);

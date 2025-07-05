@@ -1,7 +1,10 @@
+#![cfg_attr(not(test), no_std)]
+
 use core::{
     cmp::Ordering,
     ops::{Add, Div, Mul, Neg, Sub},
 };
+
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Fraction<
@@ -336,5 +339,13 @@ where
         let lhs = self.numerator * other.denominator;
         let rhs = other.numerator * self.denominator;
         lhs.cmp(&rhs)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_f() {
+
     }
 }

@@ -219,6 +219,7 @@ dependencies = [
  "embedded-graphics",
  "embedded-graphics-core",
  "embedded-hal 1.0.0",
+ "fraction",
  "nb 1.1.0",
  "panic-halt",
  "ssd1351",
@@ -233,6 +234,10 @@ checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
 dependencies = [
  "num-traits",
 ]
+
+[[package]]
+name = "fraction"
+version = "0.1.0"
 
 [[package]]
 name = "micromath"

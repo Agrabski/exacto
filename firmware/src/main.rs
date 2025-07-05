@@ -7,7 +7,6 @@ mod encoder;
 mod physics;
 mod settings;
 mod sight;
-mod fraction;
 
 use core::fmt::Debug;
 
