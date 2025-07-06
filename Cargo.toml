@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["firmware", "fraction"]
+members = [ "ballistic_calculator","firmware", "fraction"]
 
 # Configure the build for minimal size - AVRs have very little program memory
 [profile.dev]

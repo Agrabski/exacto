@@ -1,10 +1,4 @@
-use core::{f32, ops::{Div, Mul}};
-
-use crate::ballistic_calculator::Float;
-
-
-
-
+use crate::Float;
 
 pub fn velocity_from_kinetic_energy(energy: Float, mass: Float) -> Float {
     let velocity_mps = (Float::from(2) * energy / mass).sqrt();

@@ -4,12 +4,12 @@ mod ballistic_calculator;
 mod display_initialisation;
 mod embedded_graphics_transform;
 mod encoder;
-mod physics;
 mod settings;
 mod sight;
 
 use core::fmt::Debug;
 
+use ::ballistic_calculator::{BBDrift, CalculatorConfiguration};
 use embedded_graphics::mono_font::ascii::FONT_4X6;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::prelude::{DrawTarget, Primitive};
@@ -22,7 +22,6 @@ use embedded_graphics::{
 };
 use embedded_graphics_core::{prelude::Size, primitives::Rectangle};
 
-use crate::ballistic_calculator::BBDrift;
 use crate::display_initialisation::create_display;
 use crate::encoder::RotaryEncoder;
 use crate::sight::Sight;
@@ -47,7 +46,7 @@ fn main() -> ! {
         range: 33,
         last_range: 0,
         drift: BBDrift::default(),
-        configuration: ballistic_calculator::CalculatorConfiguration::default(),
+        configuration: CalculatorConfiguration::default(),
     };
     let pin_a = pins.d2.into_pull_up_input();
     let pin_b = pins.d3.into_pull_up_input();

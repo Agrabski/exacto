@@ -76,6 +76,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
 
 [[package]]
+name = "ballistic_calculator"
+version = "0.1.0"
+dependencies = [
+ "fraction",
+]
+
+[[package]]
 name = "bare-metal"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -212,6 +219,7 @@ name = "exacto"
 version = "0.1.0"
 dependencies = [
  "arduino-hal",
+ "ballistic_calculator",
  "byte-slice-cast",
  "const_format",
  "display-interface",

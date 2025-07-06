@@ -11,8 +11,10 @@ name = "exacto"
 test = false
 bench = false
 
+
 [dependencies]
 fraction ={path = "../fraction"}
+ballistic_calculator = {path = "../ballistic_calculator"}
 panic-halt = "1.0.0"
 ufmt = "0.2.0"
 nb = "1.1.0"

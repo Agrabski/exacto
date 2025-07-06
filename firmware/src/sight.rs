@@ -1,6 +1,5 @@
+use ballistic_calculator::{calculate_drift, BBDrift, CalculatorConfiguration, Float, PI};
 use embedded_graphics::prelude::Point;
-
-use crate::ballistic_calculator::{calculate_drift, BBDrift, CalculatorConfiguration, Float, PI};
 
 #[derive(PartialEq, Clone)]
 pub struct Sight {
