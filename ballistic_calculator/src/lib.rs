@@ -127,3 +127,97 @@ impl BBStateVector {
         velocity_from_kinetic_energy(self.kinetic_energy, self.mass)
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_config() -> CalculatorConfiguration {
+        CalculatorConfiguration {
+            magnus_effect_angular_velocity: Float::from(10),
+            bb_weight: Float::new(4, 10000),
+            muzzle_energy: Float::new(15, 10),
+            angle_of_elevation: Float::zero(),
+        }
+    }
+
+    #[test]
+    fn test_calculate_drift_basic() {
+        let config = make_config();
+        let drift = calculate_drift(&config, Float::from(10));
+    }
+
+    #[test]
+    fn test_zero_range() {
+        let config = make_config();
+        let drift = calculate_drift(&config, Float::zero());
+        assert_eq!(drift, BBDrift::default());
+    }
+
+    #[test]
+    fn test_zero_energy() {
+        let mut config = make_config();
+        config.muzzle_energy = Float::zero();
+        let drift = calculate_drift(&config, Float::from(10));
+        assert_eq!(drift, BBDrift::default());
+    }
+
+
+    #[test]
+    fn test_negative_range() {
+        let config = make_config();
+        let drift = calculate_drift(&config, Float::from(-5));
+        assert_eq!(drift, BBDrift::default());
+    }
+
+    #[test]
+    fn test_large_range() {
+        let config = make_config();
+        let drift = calculate_drift(&config, Float::from(1000));
+        // Should not panic and should return a BBDrift
+    }
+
+    #[test]
+    fn test_extreme_magnus() {
+        let mut config = make_config();
+        config.magnus_effect_angular_velocity = Float::from(10000);
+        let drift = calculate_drift(&config, Float::from(10));
+    }
+
+    #[test]
+    fn test_default_config() {
+        let config = CalculatorConfiguration::default();
+        let drift = calculate_drift(&config, Float::from(10));
+    }
+
+    #[test]
+    fn test_no_panic_various_inputs() {
+        let configs = [
+            CalculatorConfiguration::default(),
+            CalculatorConfiguration {
+                magnus_effect_angular_velocity: Float::from(0),
+                bb_weight: Float::from(1),
+                muzzle_energy: Float::from(1),
+                angle_of_elevation: Float::zero(),
+            },
+            CalculatorConfiguration {
+                magnus_effect_angular_velocity: Float::from(-10),
+                bb_weight: Float::from(1),
+                muzzle_energy: Float::from(1),
+                angle_of_elevation: Float::zero(),
+            },
+        ];
+        let ranges = [
+            Float::from(0),
+            Float::from(1),
+            Float::from(100),
+            Float::from(-1),
+        ];
+        for config in configs.iter() {
+            for range in ranges.iter() {
+                let _ = calculate_drift(config, *range);
+            }
+        }
+    }
+}

@@ -1,39 +1,42 @@
 #![cfg_attr(not(test), no_std)]
+use core::fmt::Display;
 use core::{
     cmp::Ordering,
     ops::{Add, Div, Mul, Neg, Sub},
 };
+use num::traits::{SaturatingAdd, SaturatingMul};
+use num::Bounded;
 
-pub trait Integer : num::Integer + num::Signed + Copy {
-
+pub trait Integer:
+    num::Integer + num::Signed + Copy + SaturatingMul + Bounded + SaturatingAdd + Display
+{
 }
 
-impl<T : num::Integer + num::Signed + Copy> Integer for T {
-
+impl<T: num::Integer + num::Signed + Copy + SaturatingMul + Bounded + SaturatingAdd + Display>
+    Integer for T
+{
 }
 
 // Reduce fraction by their GCD if possible
-fn gcd<TNumber : Integer>(mut a: TNumber, mut b: TNumber) -> TNumber {
+fn gcd<TNumber: Integer>(mut a: TNumber, mut b: TNumber) -> TNumber {
     while b != TNumber::zero() {
         let tmp = b;
         b = a % b;
         a = tmp;
     }
+    assert!(a != TNumber::zero());
     a
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Fraction<
-    TNumber: Integer
-> {
+pub struct Fraction<TNumber: Integer> {
     pub numerator: TNumber,
     pub denominator: TNumber,
 }
 
 impl<TNumber> Fraction<TNumber>
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     pub const fn new(numerator: TNumber, denominator: TNumber) -> Self {
         Self {
@@ -61,7 +64,7 @@ where
     }
 
     pub fn sqrt(&self) -> Self {
-        if self.denominator == TNumber::zero() {
+        if self.numerator == TNumber::zero() {
             return Self::zero();
         }
 
@@ -79,10 +82,10 @@ where
         let mut den = self.denominator;
 
         if num < zero {
-            num = -num;
+            num = safe_neg(num);
         }
         if den < zero {
-            den = -den;
+            den = safe_neg(den);
         }
 
         Self {
@@ -104,14 +107,16 @@ where
 
         // Move sign to numerator, denominator always positive
         if den < zero {
-            num = -num;
-            den = -den;
+            num = safe_neg(num);
+            den = safe_neg(den)
         }
 
         // Only try to reduce if TNumber supports remainder
         let reduced = {
             let divisor = gcd(num, den);
-            if divisor != one {
+            
+
+            if divisor.abs() != one {
                 (num / divisor, den / divisor)
             } else {
                 (num, den)
@@ -127,7 +132,7 @@ where
 
 impl<TNumber> Neg for Fraction<TNumber>
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     type Output = Fraction<TNumber>;
 
@@ -139,39 +144,40 @@ where
     }
 }
 
-// Implement multiplication for Fractions
 impl<TNumber> Mul for Fraction<TNumber>
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
         Self {
-            numerator: self.numerator * rhs.numerator,
-            denominator: self.denominator * rhs.denominator,
-        }.normalized()
+            numerator: self.numerator.saturating_mul(&rhs.numerator),
+            denominator: self.denominator.saturating_mul(&rhs.denominator),
+        }
+        .normalized()
     }
 }
 
 impl<TNumber> Div for Fraction<TNumber>
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
         assert!(rhs.numerator > TNumber::zero(), "Cannot divide by zero.");
         Self {
-            numerator: self.numerator * rhs.denominator,
-            denominator: self.denominator * rhs.numerator,
-        }.normalized()
+            numerator: self.numerator.saturating_mul(&rhs.denominator),
+            denominator: self.denominator.saturating_mul(&rhs.numerator),
+        }
+        .normalized()
     }
 }
 
 impl<TNumber> PartialOrd for Fraction<TNumber>
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         let lhs = self.numerator * other.denominator;
@@ -182,7 +188,7 @@ where
 
 impl<TNumber> From<TNumber> for Fraction<TNumber>
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     fn from(value: TNumber) -> Self {
         Self::new(value, TNumber::one())
@@ -191,26 +197,27 @@ where
 
 impl<TNumber> Add for Fraction<TNumber>
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let lhs_num = self.numerator * rhs.denominator;
-        let rhs_num = rhs.numerator * self.denominator;
-        let new_num = lhs_num + rhs_num;
-        let new_den = self.denominator * rhs.denominator;
+        let lhs_num = self.numerator.saturating_mul(&rhs.denominator);
+        let rhs_num = rhs.numerator.saturating_mul(&self.denominator);
+        let new_num = lhs_num.saturating_add(&rhs_num);
+        let new_den = self.denominator.saturating_mul(&rhs.denominator);
 
         Self {
             numerator: new_num,
             denominator: new_den,
-        }.normalized()
+        }
+        .normalized()
     }
 }
 
 impl<TNumber> Add<TNumber> for Fraction<TNumber>
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     type Output = Self;
 
@@ -225,7 +232,7 @@ where
 
 fn slow_sqrt<TNumber>(value: TNumber) -> TNumber
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     // Brute-force sqrt for integer-like types without Step trait
     let mut x = TNumber::zero();
@@ -238,52 +245,58 @@ where
 
 impl<TNumber> Div<TNumber> for Fraction<TNumber>
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     type Output = Self;
 
     fn div(self, rhs: TNumber) -> Self::Output {
         Self {
             numerator: self.numerator,
-            denominator: self.denominator * rhs,
-        }.normalized()
+            denominator: self.denominator.saturating_mul(&rhs),
+        }
+        .normalized()
     }
 }
 impl<TNumber> Sub for Fraction<TNumber>
 where
-    TNumber: Integer
+    TNumber: Integer,
 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let lhs_num = self.numerator * rhs.denominator;
-        let rhs_num = rhs.numerator * self.denominator;
+        let lhs_num = self.numerator.saturating_mul(&rhs.denominator);
+        let rhs_num = rhs.numerator.saturating_mul(&self.denominator);
         let new_num = lhs_num - rhs_num;
-        let new_den = self.denominator * rhs.denominator;
+        let new_den = self.denominator.saturating_mul(&rhs.denominator);
 
         Self {
             numerator: new_num,
             denominator: new_den,
-        }.normalized()
+        }
+        .normalized()
     }
 }
-impl<TNumber> Eq for Fraction<TNumber> where
-    TNumber: Integer
-{
-}
+impl<TNumber> Eq for Fraction<TNumber> where TNumber: Integer {}
 
 // --- Ord ---
 impl<TNumber> Ord for Fraction<TNumber>
 where
-    TNumber: Ord
-        + Copy
-        + Mul<Output = TNumber>
-        + Integer
+    TNumber: Ord + Copy + Mul<Output = TNumber> + Integer,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         let lhs = self.numerator * other.denominator;
         let rhs = other.numerator * self.denominator;
         lhs.cmp(&rhs)
+    }
+}
+
+fn safe_neg<TNumber: Integer>(value: TNumber) -> TNumber {
+    if value == TNumber::min_value() {
+        TNumber::max_value()
+    } else if value == TNumber::max_value() {
+        TNumber::min_value()
+    } else {
+        -value
     }
 }
 
@@ -321,7 +334,7 @@ mod tests {
         let a = Fraction::new(3, 4);
         let b = Fraction::new(1, 4);
         let result = a - b;
-        assert_eq!(result, Fraction::new(1,2));
+        assert_eq!(result, Fraction::new(1, 2));
     }
 
     #[test]
@@ -329,7 +342,7 @@ mod tests {
         let a = Fraction::new(2, 3);
         let b = Fraction::new(3, 4);
         let result = a * b;
-        assert_eq!(result, Fraction::new(6,12).normalized());
+        assert_eq!(result, Fraction::new(6, 12).normalized());
     }
 
     #[test]
@@ -337,7 +350,15 @@ mod tests {
         let a = Fraction::new(2, 3);
         let b = Fraction::new(4, 5);
         let result = a / b;
-        assert_eq!(result, Fraction::new(10,12).normalized());
+        assert_eq!(result, Fraction::new(10, 12).normalized());
+    }
+
+    #[test]
+    fn one_divided_by_one_is_one() {
+        let a = Fraction::new(1, 1);
+        let b = Fraction::new(1, 1);
+        let result = a / b;
+        assert_eq!(result, Fraction::new(1, 1));
     }
 
     #[test]

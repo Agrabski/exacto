@@ -3,7 +3,7 @@ use embedded_graphics::{
     mono_font::{ascii::FONT_4X6, MonoTextStyle},
     pixelcolor::Rgb565,
     prelude::{DrawTarget, Point, RgbColor},
-    text::{self, renderer::CharacterStyle, Text},
+    text::{renderer::CharacterStyle, Text},
 };
 use embedded_graphics_core::Drawable;
 

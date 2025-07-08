@@ -1,12 +1,12 @@
 [workspace]
 resolver = "3"
-members = [ "ballistic_calculator","firmware", "fraction"]
+members = ["ballistic_calculator", "firmware", "fraction"]
 
 # Configure the build for minimal size - AVRs have very little program memory
 [profile.dev]
 panic = "abort"
-lto = true
-opt-level = "s"
+lto = false
+opt-level = 0
 
 [profile.release]
 panic = "abort"

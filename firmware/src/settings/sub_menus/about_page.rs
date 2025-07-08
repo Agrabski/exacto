@@ -1,7 +1,6 @@
-use crate::settings::ui::{
-    settings_page::{NavigationButton, SettingsPage, SettingsPageClickResult, SettingsPageControl, TextLine},
-    Menu,
-};
+use crate::settings::ui::
+    settings_page::{NavigationButton, SettingsPage, SettingsPageClickResult, SettingsPageControl, TextLine}
+;
 use const_format::formatcp;
 
 pub struct AboutPage {

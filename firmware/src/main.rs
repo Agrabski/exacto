@@ -114,7 +114,7 @@ where
     let point_of_impact = sight.calculated_point_of_impact();
     draw_rectangle(interface,  Rectangle::with_center(
         point_of_impact,
-        Size::new((reticle_size / 2), (reticle_size / 2)),
+        Size::new(reticle_size / 2, reticle_size / 2),
     ));
 }
 
