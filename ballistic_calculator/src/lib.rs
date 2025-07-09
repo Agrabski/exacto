@@ -4,7 +4,8 @@ pub mod physics;
 use crate::physics::{drag_force, magnus_force, velocity_from_kinetic_energy};
 use fraction::Fraction;
 
-pub type Float = Fraction<i32>;
+pub type IntegerType = i16;
+pub type Float = Fraction<IntegerType>;
 
 pub const PI: Float = Float {
     numerator: 22,
@@ -92,12 +93,12 @@ pub fn calculate_drift(
         let dt = (step / v).abs();
         let dt_time = dt;
 
-        // Update drift_x (Magnus effect, sideways)
-        let accel_x = magnus_force / state.mass;
+        //todo: wind, tilt
+        let accel_x = Fraction::from(0);
         drift_x = drift_x + (accel_x * dt_time * dt_time) / 2;
 
         // Update drift_y (gravity, vertical)
-        let accel_y = -GRAVITY;
+        let accel_y = (magnus_force / state.mass) -GRAVITY;
         drift_y = drift_y + (accel_y * dt_time * dt_time / 2);
 
         // Update kinetic energy (drag)
@@ -127,7 +128,6 @@ impl BBStateVector {
         velocity_from_kinetic_energy(self.kinetic_energy, self.mass)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -163,7 +163,6 @@ mod tests {
         assert_eq!(drift, BBDrift::default());
     }
 
-
     #[test]
     fn test_negative_range() {
         let config = make_config();
@@ -189,6 +188,24 @@ mod tests {
     fn test_default_config() {
         let config = CalculatorConfiguration::default();
         let drift = calculate_drift(&config, Float::from(10));
+    }
+
+    #[test]
+    fn test_default_config_range_1() {
+        let config = CalculatorConfiguration::default();
+        let drift = calculate_drift(&config, Float::from(1));
+        let value_x = drift.drift_x.value();
+        let value_y = drift.drift_y.value();
+        assert!(value_y.abs() < 10);
+    }
+
+    #[test]
+    fn test_default_config_range_2() {
+        let config = CalculatorConfiguration::default();
+        let drift = calculate_drift(&config, Float::from(2));
+        let value_x = drift.drift_x.value();
+        let value_y = drift.drift_y.value();
+        assert!(value_y.abs() < 10);
     }
 
     #[test]

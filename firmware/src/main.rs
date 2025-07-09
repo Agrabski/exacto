@@ -1,6 +1,5 @@
 #![no_std]
 #![no_main]
-mod ballistic_calculator;
 mod display_initialisation;
 mod embedded_graphics_transform;
 mod encoder;
@@ -10,6 +9,7 @@ mod sight;
 use core::fmt::Debug;
 
 use ::ballistic_calculator::{BBDrift, CalculatorConfiguration};
+use arduino_hal::default_serial;
 use embedded_graphics::mono_font::ascii::FONT_4X6;
 use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::prelude::{DrawTarget, Primitive};
@@ -45,20 +45,23 @@ fn main() -> ! {
         battery_power: 15,
         range: 33,
         last_range: 0,
-        drift: BBDrift::default(),
+        drift: Point::default(),
         configuration: CalculatorConfiguration::default(),
     };
     let pin_a = pins.d2.into_pull_up_input();
     let pin_b = pins.d3.into_pull_up_input();
     let pin_sw = pins.d9.into_pull_up_input();
+    let mut serial = default_serial!(dp, pins, 57600);
 
     let mut encoder = RotaryEncoder::new(pin_a, pin_b, pin_sw).unwrap();
 
     let mut last_update_loop = 0;
     let mut settings_state = settings::SettingsState::new();
+    let mut last_sight = sight.clone();
 
     loop {
         encoder.update().unwrap();
+        ufmt::uwriteln!(&mut serial, "position {}", encoder.position()).ok();
         last_update_loop += 1;
         let settings_was_updated = settings_state.update(&mut sight, &mut encoder);
         if settings_was_updated || settings_state.is_open() {
@@ -77,12 +80,13 @@ fn main() -> ! {
                 sight.range = position as u8;
                 sight.update();
             }
-            if (last_update_loop > 500) || last_update_loop > 5000 {
+            if last_update_loop > 800 && last_sight != sight {
                 interface.clear_oled();
                 display_sight(&mut interface, &sight);
                 last_update_loop = 0;
             }
         }
+        
     }
 }
 
@@ -109,13 +113,19 @@ where
 {
     let reticle_size: u32 = 8;
     let center = sight.point_of_aim();
-    draw_rectangle(interface, Rectangle::with_center(center, Size::new(reticle_size, reticle_size)));
+    draw_rectangle(
+        interface,
+        Rectangle::with_center(center, Size::new(reticle_size, reticle_size)),
+    );
 
     let point_of_impact = sight.calculated_point_of_impact();
-    draw_rectangle(interface,  Rectangle::with_center(
-        point_of_impact,
-        Size::new(reticle_size / 2, reticle_size / 2),
-    ));
+    draw_rectangle(
+        interface,
+        Rectangle::with_center(
+            point_of_impact,
+            Size::new(reticle_size / 2, reticle_size / 2),
+        ),
+    );
 }
 
 fn draw_rectangle<T>(interface: &mut T, rectangle: Rectangle)

@@ -8,11 +8,35 @@ use num::traits::{SaturatingAdd, SaturatingMul};
 use num::Bounded;
 
 pub trait Integer:
-    num::Integer + num::Signed + Copy + SaturatingMul + Bounded + SaturatingAdd + Display
+    num::Integer + num::Signed + Copy + SaturatingMul + Bounded + SaturatingAdd + Display + SqrtOfMax
 {
 }
 
-impl<T: num::Integer + num::Signed + Copy + SaturatingMul + Bounded + SaturatingAdd + Display>
+pub trait SqrtOfMax {
+    const SQRT: Self;
+}
+
+impl SqrtOfMax for u8 {
+    const SQRT: Self = 16;
+}
+
+impl SqrtOfMax for u16 {
+    const SQRT: Self = 256;
+}
+
+impl SqrtOfMax for u32 {
+    const SQRT: Self = 65536;
+}
+
+impl SqrtOfMax for i32 {
+    const SQRT: Self = 32761;
+}
+
+impl SqrtOfMax for i16 {
+    const SQRT: Self = 181;
+}
+
+impl<T: num::Integer + num::Signed + Copy + SaturatingMul + Bounded + SaturatingAdd + Display + SqrtOfMax>
     Integer for T
 {
 }
@@ -114,7 +138,6 @@ where
         // Only try to reduce if TNumber supports remainder
         let reduced = {
             let divisor = gcd(num, den);
-            
 
             if divisor.abs() != one {
                 (num / divisor, den / divisor)
@@ -234,11 +257,16 @@ fn slow_sqrt<TNumber>(value: TNumber) -> TNumber
 where
     TNumber: Integer,
 {
+    if value == TNumber::max_value() {
+        return TNumber::SQRT;
+    }
     // Brute-force sqrt for integer-like types without Step trait
     let mut x = TNumber::zero();
     let one = TNumber::one();
-    while x * x <= value {
+    let mut square =x.saturating_mul(&x);
+    while square  <= value {
         x = x + one;
+        square =x.saturating_mul(&x);
     }
     x - one
 }
@@ -302,6 +330,8 @@ fn safe_neg<TNumber: Integer>(value: TNumber) -> TNumber {
 
 #[cfg(test)]
 mod tests {
+    use crate::slow_sqrt;
+
     type Fraction = super::Fraction<i32>;
 
     #[test]
@@ -438,5 +468,11 @@ mod tests {
         let result = a.sqrt();
         assert_eq!(result.numerator, 3);
         assert_eq!(result.denominator, 4);
+    }
+
+    #[test]
+    fn test_sqrt_32767() {
+        let result = slow_sqrt(32767i16);
+        assert_eq!(result, 181);
     }
 }
