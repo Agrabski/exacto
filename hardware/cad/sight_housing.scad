@@ -176,22 +176,33 @@ module lens_frame() {
                  + sqrt(R_outer*R_outer - (arm_w/2)*(arm_w/2));  // 19.53+12.99=32.52
 
     difference() {
-        // Outer shell: rectangle + arc cap
+        // Outer shell: rectangular body + only the arc sliver above outer_rect_h
         union() {
             cube([arm_w, frame_y, outer_rect_h]);
-            translate([arm_w/2, frame_y/2, outer_arc_cz])
-                rotate([90,0,0])
-                    cylinder(r=R_outer, h=frame_y, center=true);
+
+            // Arc cap clipped to the region above outer_rect_h (sagitta ≈ 6.5 mm)
+            intersection() {
+                translate([arm_w/2, frame_y/2, outer_arc_cz])
+                    rotate([90, 0, 0])
+                        cylinder(r=R_outer, h=frame_y + 0.2, center=true, $fn=60);
+                translate([-1, -0.1, outer_rect_h])
+                    cube([arm_w + 2, frame_y + 0.2, R_outer]);
+            }
         }
 
-        // Glass pocket: rectangle section
+        // Glass pocket: rectangular section
         translate([wall, -0.1, wall])
             cube([lens_w, lens_t + clearance + 0.1, lens_rect_h]);
 
-        // Glass pocket: arc cap
-        translate([arm_w/2, frame_y/2, wall + lens_arc_cz])
-            rotate([90,0,0])
-                cylinder(r=lens_top_r + clearance/2, h=lens_t + clearance + 0.2, center=true);
+        // Glass pocket: arc cap clipped above lens_rect_h (sagitta ≈ 5 mm)
+        intersection() {
+            translate([arm_w/2, frame_y/2, wall + lens_arc_cz])
+                rotate([90, 0, 0])
+                    cylinder(r=lens_top_r + clearance/2,
+                             h=lens_t + clearance + 0.2, center=true, $fn=60);
+            translate([-1, -0.1, wall + lens_rect_h])
+                cube([arm_w + 2, frame_y + 0.2, lens_top_r + 1]);
+        }
     }
 }
 
