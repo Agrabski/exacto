@@ -56,13 +56,16 @@ frame_z = lens_h + 2*wall;       // 39.00  — frame height
 x_off   = (body_w - arm_w) / 2; // 9.10   — X offset to centre glass on body
 
 // Lens profile geometry (see hardware/lens/lense.avif):
-//   The lens is a rectangle (lens_w × rect_h) topped by a single
-//   circular arc (R=lens_top_r, spanning the full width).
-//   Arc centre in lens coords: (lens_w/2, lens_h - lens_top_r)
-//   rect_h = (lens_h - lens_top_r) + sqrt(lens_top_r² - (lens_w/2)²)
-//          = 17.03 + 12.00 = 29.03 mm
+//   BOTH ends are rounded with the same radius lens_top_r = 16.97 mm.
+//   half_chord = sqrt(lens_top_r² - (lens_w/2)²) = 12.00 mm
+//   Top arc centre:    z = lens_h - lens_top_r = 17.03  (in lens local Z)
+//   Bottom arc centre: z = lens_top_r          = 16.97  (symmetric)
+//   top arc tangent:   z = (lens_h-lens_top_r) + half_chord = 29.03 mm  (= lens_rect_h)
+//   bottom arc tangent:z = lens_top_r - half_chord          =  4.97 mm  (= bot_rect_z)
+//   Straight section height: lens_rect_h - bot_rect_z ≈ 24.06 mm
 lens_arc_cz  = lens_h - lens_top_r;                                    // 17.03
 lens_rect_h  = lens_arc_cz + sqrt(lens_top_r*lens_top_r - (lens_w/2)*(lens_w/2)); // 29.03
+bot_rect_z   = lens_top_r - sqrt(lens_top_r*lens_top_r - (lens_w/2)*(lens_w/2)); //  4.97
 
 // Glass center in world space.
 // The glass is tilted at `angle` from horizontal in the YZ plane.
@@ -190,11 +193,11 @@ module lens_frame() {
             }
         }
 
-        // Glass pocket: rectangular section
-        translate([wall, -0.1, wall])
-            cube([lens_w, lens_t + clearance + 0.1, lens_rect_h]);
+        // Glass pocket: straight section only (between the two arc tangent lines)
+        translate([wall, -0.1, wall + bot_rect_z])
+            cube([lens_w, lens_t + clearance + 0.1, lens_rect_h - bot_rect_z]);
 
-        // Glass pocket: arc cap clipped above lens_rect_h (sagitta ≈ 5 mm)
+        // Glass pocket: top arc cap clipped above lens_rect_h (sagitta ≈ 4.97 mm)
         intersection() {
             translate([arm_w/2, frame_y/2, wall + lens_arc_cz])
                 rotate([90, 0, 0])
@@ -202,6 +205,16 @@ module lens_frame() {
                              h=lens_t + clearance + 0.2, center=true, $fn=60);
             translate([-1, -0.1, wall + lens_rect_h])
                 cube([arm_w + 2, frame_y + 0.2, lens_top_r + 1]);
+        }
+
+        // Glass pocket: bottom arc cap clipped below bot_rect_z (sagitta ≈ 4.97 mm)
+        intersection() {
+            translate([arm_w/2, frame_y/2, wall + lens_top_r])
+                rotate([90, 0, 0])
+                    cylinder(r=lens_top_r + clearance/2,
+                             h=lens_t + clearance + 0.2, center=true, $fn=60);
+            translate([-1, -0.1, wall - 0.1])
+                cube([arm_w + 2, frame_y + 0.2, bot_rect_z + 0.2]);
         }
     }
 }
