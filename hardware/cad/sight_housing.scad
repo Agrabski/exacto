@@ -27,10 +27,13 @@ disp_hole_d     =  2.10;
 disp_hole_off_x =  2.25;   // hole centre from PCB side edge
 disp_hole_off_y =  2.10;   // hole centre from PCB top/bottom edge
 
-// ── Lens / combiner glass (measure yours) ───────────────────
-lens_w = 30.00;
-lens_h = 25.00;
-lens_t =  2.00;
+// ── Lens / combiner glass (hardware/lens/lense.avif) ────────
+// Shape: 24 mm wide, 34 mm tall, rounded top (arc R16.97 mm)
+// Side profile: meniscus, R138.34 convex / R136.5 concave, 2.74 mm thick
+lens_w = 24.00;
+lens_h = 34.00;
+lens_t =  2.74;
+lens_top_r = 16.97;   // radius of rounded top arc
 
 // ── Structure ────────────────────────────────────────────────
 wall         = 2.50;
@@ -101,14 +104,38 @@ module screen_body() {
 
 // ── Lens frame ───────────────────────────────────────────────
 // Combiner glass slides into pocket from the –Y face (toward pivot).
-// Side walls grip the glass; top and bottom seat it in Z.
+// Frame profile matches the lens: rectangular body + rounded top cap.
 module lens_frame() {
-    difference() {
-        cube([arm_w, frame_y, frame_z]);
+    // Rectangular bottom portion height (below the rounded cap)
+    rect_h = lens_h - lens_top_r;
 
-        // Glass pocket
+    difference() {
+        union() {
+            // Rectangular lower section
+            cube([arm_w, frame_y, rect_h + wall]);
+
+            // Rounded top cap: hull between two cylinders
+            translate([arm_w/2, frame_y/2, rect_h + wall])
+                hull() {
+                    translate([-lens_w/2 + lens_top_r, 0, 0])
+                        cylinder(r=lens_top_r + wall, h=frame_y, center=true);
+                    translate([ lens_w/2 - lens_top_r, 0, 0])
+                        cylinder(r=lens_top_r + wall, h=frame_y, center=true);
+                }
+        }
+
+        // Glass pocket — rectangular lower slot
         translate([wall, -0.1, wall])
-            cube([lens_w, lens_t + clearance + 0.1, lens_h]);
+            cube([lens_w, lens_t + clearance + 0.1, rect_h]);
+
+        // Glass pocket — rounded top cap slot
+        translate([arm_w/2, lens_t/2 + wall/2, rect_h + wall])
+            hull() {
+                translate([-lens_w/2 + lens_top_r, 0, 0])
+                    cylinder(r=lens_top_r + clearance, h=lens_t + clearance + 0.2, center=true);
+                translate([ lens_w/2 - lens_top_r, 0, 0])
+                    cylinder(r=lens_top_r + clearance, h=lens_t + clearance + 0.2, center=true);
+            }
     }
 }
 
