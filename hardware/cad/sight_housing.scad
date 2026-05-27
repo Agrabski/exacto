@@ -1,19 +1,19 @@
 // ============================================================
-// Exacto Reflex Sight Housing — v2
+// Exacto Reflex Sight Housing — v3 (EOTech-style)
 //
 // Layout:
 //   screen_body()        box holding OLED + electronics, display up
-//   rear_post()          tall wall at Y=0 supporting high glass edge
-//   front_post()         short ledge at Y=body_d for low glass edge
-//   side_rails()         left+right walls tying posts together
+//   eotech_shroud()      rectangular window frame — left/right walls,
+//                        top hood, front/rear lower lips
 //   glass_frame_mount()  combiner glass frame at `angle` degrees
+//                        (sits inside shroud, no exposed posts)
 //
 // Display: Waveshare 1.27-inch SSD1351 RGB OLED
 //   PCB     42.20 × 29.00 mm  (hardware/display/dimensions.png)
 //   Active  38.00 × 24.80 mm
 //   Holes   ø2.10, inset 2.25 mm (X) / 2.10 mm (Y) from PCB edge
 //
-// Lens:   24.00 × 34.00 mm, 2.74 mm thick, top arc R16.97
+// Lens:   24.00 × 34.00 mm, 2.74 mm thick, arcs R16.97 both ends
 //         (hardware/lens/lense.avif)
 // ============================================================
 
@@ -38,59 +38,44 @@ disp_hole_off_y =  2.10;
 lens_w     = 24.00;
 lens_h     = 34.00;
 lens_t     =  2.74;
-lens_top_r = 16.97;   // radius of top arc
+lens_top_r = 16.97;   // radius of rounded ends (both top and bottom)
 
 // ── Structure ────────────────────────────────────────────────
-wall       =  2.50;
-clearance  =  0.30;
-body_height = 20.00;  // must fit Arduino Nano + wiring
+wall        =  2.50;
+shroud_wall =  3.00;   // EOTech shroud wall / hood thickness
+clearance   =  0.30;
+body_height = 20.00;   // must fit Arduino Nano + wiring
+lip_h       = 10.00;   // height of front/rear lower lips on shroud
 
 $fn = 48;
 
 // ── Derived ──────────────────────────────────────────────────
-body_w = disp_pcb_w + 2*wall;   // 47.20
-body_d = disp_pcb_h + 2*wall;   // 34.00
-arm_w  = lens_w + 2*wall;        // 29.00  — frame/post width in X
-frame_y = lens_t + 2*wall;       // 7.74   — frame depth (Y, along glass normal)
-frame_z = lens_h + 2*wall;       // 39.00  — frame height
-x_off   = (body_w - arm_w) / 2; // 9.10   — X offset to centre glass on body
+body_w  = disp_pcb_w + 2*wall;   // 47.20
+body_d  = disp_pcb_h + 2*wall;   // 34.00
+arm_w   = lens_w + 2*wall;        // 29.00
+frame_y = lens_t + 2*wall;        //  7.74
+frame_z = lens_h + 2*wall;        // 39.00
+x_off   = (body_w - arm_w) / 2;  //  9.10
 
-// Lens profile geometry (see hardware/lens/lense.avif):
-//   BOTH ends are rounded with the same radius lens_top_r = 16.97 mm.
-//   half_chord = sqrt(lens_top_r² - (lens_w/2)²) = 12.00 mm
-//   Top arc centre:    z = lens_h - lens_top_r = 17.03  (in lens local Z)
-//   Bottom arc centre: z = lens_top_r          = 16.97  (symmetric)
-//   top arc tangent:   z = (lens_h-lens_top_r) + half_chord = 29.03 mm  (= lens_rect_h)
-//   bottom arc tangent:z = lens_top_r - half_chord          =  4.97 mm  (= bot_rect_z)
-//   Straight section height: lens_rect_h - bot_rect_z ≈ 24.06 mm
-lens_arc_cz  = lens_h - lens_top_r;                                    // 17.03
-lens_rect_h  = lens_arc_cz + sqrt(lens_top_r*lens_top_r - (lens_w/2)*(lens_w/2)); // 29.03
-bot_rect_z   = lens_top_r - sqrt(lens_top_r*lens_top_r - (lens_w/2)*(lens_w/2)); //  4.97
+// Lens arc geometry (both ends rounded, same R)
+lens_arc_cz = lens_h - lens_top_r;                                         // 17.03
+lens_rect_h = lens_arc_cz + sqrt(lens_top_r*lens_top_r - (lens_w/2)*(lens_w/2)); // 29.03
+bot_rect_z  = lens_top_r  - sqrt(lens_top_r*lens_top_r - (lens_w/2)*(lens_w/2)); //  4.97
 
-// Glass center in world space.
-// The glass is tilted at `angle` from horizontal in the YZ plane.
-// "Top" edge (local +Z of frame) maps to world REAR-HIGH direction.
-// "Bottom" edge maps to FRONT-LOW direction.
-// We set clearance_body = 5 mm above body top at the bottom edge.
+// Glass centre in world space
 clearance_body = 5;
-glass_cz = body_height + clearance_body + lens_h/2 * sin(angle);  // 42.02 at 45°
-glass_cy = body_d / 2;                                              // 17.00
+glass_cz = body_height + clearance_body + lens_h/2 * sin(angle);
+glass_cy = body_d / 2;
 
-// World positions of glass edges (for calculating post heights)
-// Using rotate([90-angle,0,0]) on the frame:
-//   local +Z  → world (0, -cos(angle),  sin(angle)) [rear-up]
-//   local +Y  → world (0,  sin(angle),  cos(angle)) [forward-up]
-//
-// Bottom edge (local Z = -frame_z/2 from centre):
-glass_bottom_z = glass_cz - lens_h/2 * sin(angle);  // = body_height + clearance_body
+// World positions of glass edges
+glass_bottom_z = glass_cz - lens_h/2 * sin(angle);   // = body_height + clearance_body
 glass_bottom_y = glass_cy + lens_h/2 * cos(angle);
-// Top edge (local Z = +frame_z/2 from centre):
 glass_top_z    = glass_cz + lens_h/2 * sin(angle);
 glass_top_y    = glass_cy - lens_h/2 * cos(angle);
 
-// Post heights above body_height
-rear_post_h  = glass_top_z  + frame_y/2*cos(angle) + wall - body_height;
-front_post_h = max(wall, glass_bottom_z - frame_y/2*cos(angle) - body_height);
+// Shroud height — auto-sized to enclose the glass frame
+frame_tip_z = glass_cz + (frame_z/2)*sin(angle) + (frame_y/2)*cos(angle);
+shroud_h    = frame_tip_z - body_height + shroud_wall + 4;
 
 // ============================================================
 
@@ -137,47 +122,48 @@ module screen_body() {
     }
 }
 
-// ── Rear post ────────────────────────────────────────────────
-// Tall wall across the full arm width at the rear (Y=0).
-// Supports the high edge of the glass.
-module rear_post() {
-    translate([x_off, 0, body_height])
-        cube([arm_w, wall, rear_post_h]);
-}
+// ── EOTech-style shroud ───────────────────────────────────────
+// Enclosed rectangular window frame: solid left/right side walls,
+// solid top hood bar, short front/rear lower lips.
+// The centre opening (front and rear faces) is left open for viewing.
+module eotech_shroud() {
+    sw = shroud_wall;
+    bh = body_height;
+    bw = body_w;
+    bd = body_d;
+    sh = shroud_h;
 
-// ── Front post ───────────────────────────────────────────────
-// Short ledge at the front (Y=body_d) supporting the low glass edge.
-module front_post() {
-    translate([x_off, body_d - wall, body_height])
-        cube([arm_w, wall, front_post_h]);
-}
+    // Left side wall (full height, full depth)
+    translate([0, 0, bh])
+        cube([sw, bd, sh]);
 
-// ── Side rails ───────────────────────────────────────────────
-// Left and right walls connecting rear and front posts.
-// Their top edge follows the glass tilt so the frame sits flush.
-module side_rails() {
-    for (x = [x_off, x_off + arm_w - wall])
-        translate([x, 0, body_height])
-            hull() {
-                cube([wall, wall,         rear_post_h]);
-                translate([0, body_d-wall, 0])
-                    cube([wall, wall, front_post_h]);
-            }
+    // Right side wall
+    translate([bw - sw, 0, bh])
+        cube([sw, bd, sh]);
+
+    // Top hood bar (full width, full depth)
+    translate([0, 0, bh + sh - sw])
+        cube([bw, bd, sw]);
+
+    // Rear lower lip (Y=0 face, between side walls)
+    translate([sw, 0, bh])
+        cube([bw - 2*sw, sw, lip_h]);
+
+    // Front lower lip (Y=body_d face, between side walls)
+    translate([sw, bd - sw, bh])
+        cube([bw - 2*sw, sw, lip_h]);
 }
 
 // ── Lens frame ───────────────────────────────────────────────
-// A pocket that grips the combiner glass (24 × 34 mm, top arc R16.97).
-// Glass slides in from the –Y face.
-//
-// Frame outer profile = lens profile offset by wall (same arc centres, R_outer = lens_top_r + wall).
-// Both ends are rounded — mirrors the lens profile.
+// Stadium-shaped pocket for combiner glass (arcs on both ends).
+// Glass slides in from the –Y face (entry opening).
 module lens_frame() {
     R_outer       = lens_top_r + wall;
-    outer_arc_cz  = wall + lens_arc_cz;           // top arc centre    2.5+17.03 = 19.53
-    outer_bot_cz  = wall + lens_top_r;            // bottom arc centre 2.5+16.97 = 19.47
+    outer_arc_cz  = wall + lens_arc_cz;           // top arc centre    19.53
+    outer_bot_cz  = wall + lens_top_r;            // bottom arc centre 19.47
     half_chord_o  = sqrt(R_outer*R_outer - (arm_w/2)*(arm_w/2));  // 12.99
     outer_rect_h  = outer_arc_cz  + half_chord_o;  // 32.52
-    outer_bot_rect_z = outer_bot_cz - half_chord_o; // 6.48
+    outer_bot_rect_z = outer_bot_cz - half_chord_o; //  6.48
 
     difference() {
         // Outer shell: straight section + arc caps on both ends
@@ -186,7 +172,7 @@ module lens_frame() {
             translate([0, 0, outer_bot_rect_z])
                 cube([arm_w, frame_y, outer_rect_h - outer_bot_rect_z]);
 
-            // Top arc cap clipped above outer_rect_h (sagitta ≈ 6.5 mm)
+            // Top arc cap
             intersection() {
                 translate([arm_w/2, frame_y/2, outer_arc_cz])
                     rotate([90, 0, 0])
@@ -195,7 +181,7 @@ module lens_frame() {
                     cube([arm_w + 2, frame_y + 0.2, R_outer]);
             }
 
-            // Bottom arc cap clipped below outer_bot_rect_z (sagitta ≈ 6.5 mm)
+            // Bottom arc cap
             intersection() {
                 translate([arm_w/2, frame_y/2, outer_bot_cz])
                     rotate([90, 0, 0])
@@ -205,11 +191,11 @@ module lens_frame() {
             }
         }
 
-        // Glass pocket: straight section only (between the two arc tangent lines)
+        // Glass pocket: straight section
         translate([wall, -0.1, wall + bot_rect_z])
             cube([lens_w, lens_t + clearance + 0.1, lens_rect_h - bot_rect_z]);
 
-        // Glass pocket: top arc cap clipped above lens_rect_h (sagitta ≈ 4.97 mm)
+        // Glass pocket: top arc cap
         intersection() {
             translate([arm_w/2, frame_y/2, wall + lens_arc_cz])
                 rotate([90, 0, 0])
@@ -219,7 +205,7 @@ module lens_frame() {
                 cube([arm_w + 2, frame_y + 0.2, lens_top_r + 1]);
         }
 
-        // Glass pocket: bottom arc cap clipped below bot_rect_z (sagitta ≈ 4.97 mm)
+        // Glass pocket: bottom arc cap
         intersection() {
             translate([arm_w/2, frame_y/2, wall + lens_top_r])
                 rotate([90, 0, 0])
@@ -232,12 +218,6 @@ module lens_frame() {
 }
 
 // ── Glass frame at angle ─────────────────────────────────────
-// Positions lens_frame() at glass_cz with the correct tilt.
-//
-// rotate([90-angle, 0, 0]) maps:
-//   local +Y (frame depth/normal) → world (0,  sin(a), cos(a))  [forward-up]
-//   local +Z (frame height)       → world (0, -cos(a), sin(a))  [rear-up]
-// This gives: bottom of glass at front-low, top at rear-high.
 module glass_frame_mount() {
     translate([body_w/2, glass_cy, glass_cz])
         rotate([90 - angle, 0, 0])
@@ -248,9 +228,7 @@ module glass_frame_mount() {
 // ── Full housing ─────────────────────────────────────────────
 module sight_housing() {
     screen_body();
-    rear_post();
-    front_post();
-    side_rails();
+    eotech_shroud();
     glass_frame_mount();
 }
 
