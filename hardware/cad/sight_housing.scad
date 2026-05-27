@@ -169,27 +169,39 @@ module side_rails() {
 // A pocket that grips the combiner glass (24 × 34 mm, top arc R16.97).
 // Glass slides in from the –Y face.
 //
-// Frame outer profile = lens profile offset by wall.
-// Outer arc: same centre as lens arc (in frame Z), radius = lens_top_r + wall.
-// Outer rectangular height = (outer arc centre Z) + sqrt(R_outer² - (arm_w/2)²)
+// Frame outer profile = lens profile offset by wall (same arc centres, R_outer = lens_top_r + wall).
+// Both ends are rounded — mirrors the lens profile.
 module lens_frame() {
-    R_outer     = lens_top_r + wall;
-    outer_arc_cz = wall + lens_arc_cz;            // 2.5 + 17.03 = 19.53
-    outer_rect_h = outer_arc_cz
-                 + sqrt(R_outer*R_outer - (arm_w/2)*(arm_w/2));  // 19.53+12.99=32.52
+    R_outer       = lens_top_r + wall;
+    outer_arc_cz  = wall + lens_arc_cz;           // top arc centre    2.5+17.03 = 19.53
+    outer_bot_cz  = wall + lens_top_r;            // bottom arc centre 2.5+16.97 = 19.47
+    half_chord_o  = sqrt(R_outer*R_outer - (arm_w/2)*(arm_w/2));  // 12.99
+    outer_rect_h  = outer_arc_cz  + half_chord_o;  // 32.52
+    outer_bot_rect_z = outer_bot_cz - half_chord_o; // 6.48
 
     difference() {
-        // Outer shell: rectangular body + only the arc sliver above outer_rect_h
+        // Outer shell: straight section + arc caps on both ends
         union() {
-            cube([arm_w, frame_y, outer_rect_h]);
+            // Straight section between the two outer arc tangent lines
+            translate([0, 0, outer_bot_rect_z])
+                cube([arm_w, frame_y, outer_rect_h - outer_bot_rect_z]);
 
-            // Arc cap clipped to the region above outer_rect_h (sagitta ≈ 6.5 mm)
+            // Top arc cap clipped above outer_rect_h (sagitta ≈ 6.5 mm)
             intersection() {
                 translate([arm_w/2, frame_y/2, outer_arc_cz])
                     rotate([90, 0, 0])
                         cylinder(r=R_outer, h=frame_y + 0.2, center=true, $fn=60);
                 translate([-1, -0.1, outer_rect_h])
                     cube([arm_w + 2, frame_y + 0.2, R_outer]);
+            }
+
+            // Bottom arc cap clipped below outer_bot_rect_z (sagitta ≈ 6.5 mm)
+            intersection() {
+                translate([arm_w/2, frame_y/2, outer_bot_cz])
+                    rotate([90, 0, 0])
+                        cylinder(r=R_outer, h=frame_y + 0.2, center=true, $fn=60);
+                translate([-1, -0.1, -0.1])
+                    cube([arm_w + 2, frame_y + 0.2, outer_bot_rect_z + 0.2]);
             }
         }
 
