@@ -52,26 +52,23 @@ $fn = 48;
 // ── Derived ──────────────────────────────────────────────────
 body_w  = disp_pcb_w + 2*wall;   // 47.20
 body_d  = disp_pcb_h + 2*wall;   // 34.00
-arm_w   = lens_w + 2*wall;        // 29.00
-frame_y = lens_t + 2*wall;        //  7.74
-frame_z = lens_h + 2*wall;        // 39.00
-x_off   = (body_w - arm_w) / 2;  //  9.10
+// Lens is landscape: 34 mm (lens_h) horizontal, 24 mm (lens_w) along tilt.
+// Arcs (R=16.97) span the 24 mm short edge — the only valid orientation.
+arm_w   = lens_h + 2*wall;        // 39.00  horizontal frame width
+frame_y = lens_t + 2*wall;        //  7.74  frame depth (glass normal)
+frame_z = lens_w + 2*wall;        // 29.00  frame height along tilt axis
+x_off   = (body_w - arm_w) / 2;  //  4.10
 
-// Lens arc geometry (both ends rounded, same R)
-lens_arc_cz = lens_h - lens_top_r;                                         // 17.03
-lens_rect_h = lens_arc_cz + sqrt(lens_top_r*lens_top_r - (lens_w/2)*(lens_w/2)); // 29.03
-bot_rect_z  = lens_top_r  - sqrt(lens_top_r*lens_top_r - (lens_w/2)*(lens_w/2)); //  4.97
-
-// Glass centre in world space
+// Glass centre in world space (along-tilt half-span = lens_w/2)
 clearance_body = 5;
-glass_cz = body_height + clearance_body + lens_h/2 * sin(angle);
+glass_cz = body_height + clearance_body + lens_w/2 * sin(angle);
 glass_cy = body_d / 2;
 
 // World positions of glass edges
-glass_bottom_z = glass_cz - lens_h/2 * sin(angle);   // = body_height + clearance_body
-glass_bottom_y = glass_cy + lens_h/2 * cos(angle);
-glass_top_z    = glass_cz + lens_h/2 * sin(angle);
-glass_top_y    = glass_cy - lens_h/2 * cos(angle);
+glass_bottom_z = glass_cz - lens_w/2 * sin(angle);
+glass_bottom_y = glass_cy + lens_w/2 * cos(angle);
+glass_top_z    = glass_cz + lens_w/2 * sin(angle);
+glass_top_y    = glass_cy - lens_w/2 * cos(angle);
 
 // Shroud height — auto-sized to enclose the glass frame
 frame_tip_z = glass_cz + (frame_z/2)*sin(angle) + (frame_y/2)*cos(angle);
@@ -155,64 +152,77 @@ module eotech_shroud() {
 }
 
 // ── Lens frame ───────────────────────────────────────────────
-// Stadium-shaped pocket for combiner glass (arcs on both ends).
+// Landscape orientation: lens_h (34 mm) along X, lens_w (24 mm) along Z.
+// Arc caps on LEFT (low-X) and RIGHT (high-X) edges, each spanning lens_w.
 // Glass slides in from the –Y face (entry opening).
 module lens_frame() {
-    R_outer       = lens_top_r + wall;
-    outer_arc_cz  = wall + lens_arc_cz;           // top arc centre    19.53
-    outer_bot_cz  = wall + lens_top_r;            // bottom arc centre 19.47
-    half_chord_o  = sqrt(R_outer*R_outer - (arm_w/2)*(arm_w/2));  // 12.99
-    outer_rect_h  = outer_arc_cz  + half_chord_o;  // 32.52
-    outer_bot_rect_z = outer_bot_cz - half_chord_o; //  6.48
+    // ── geometry --------------------------------------------------
+    // inner pocket arc centres (X, Z) in frame local coords
+    //   half-chord (spanning Z = lens_w) = sqrt(R² − (lens_w/2)²) = 12.00 mm
+    inner_hc  = sqrt(lens_top_r*lens_top_r - (lens_w/2)*(lens_w/2)); // 12.00
+    //   left  arc centre X  =  wall + lens_top_r          = 19.47
+    //   right arc centre X  =  wall + lens_h − lens_top_r = 19.53
+    p_lcx = wall + lens_top_r;           // 19.47
+    p_rcx = wall + lens_h - lens_top_r;  // 19.53
+    p_cz  = wall + lens_w / 2;           // 14.50
+    p_r   = lens_top_r + clearance/2;    // 17.12
+
+    // inner straight-section X bounds (where arc is tangent to Z=wall / Z=wall+lens_w)
+    inner_lx = p_lcx - inner_hc;         //  7.47
+    inner_rx = p_rcx + inner_hc;         // 31.53
+
+    // outer shell (R_outer = lens_top_r + wall = 19.47)
+    R_outer  = lens_top_r + wall;
+    outer_hc = sqrt(R_outer*R_outer - (frame_z/2)*(frame_z/2)); // 12.99
+    outer_lx = p_lcx - outer_hc;         //  6.48
+    outer_rx = p_rcx + outer_hc;         // 32.52
 
     difference() {
-        // Outer shell: straight section + arc caps on both ends
+        // ── outer shell ───────────────────────────────────────────
         union() {
-            // Straight section between the two outer arc tangent lines
-            translate([0, 0, outer_bot_rect_z])
-                cube([arm_w, frame_y, outer_rect_h - outer_bot_rect_z]);
+            // straight middle section
+            translate([outer_lx, 0, 0])
+                cube([outer_rx - outer_lx, frame_y, frame_z]);
 
-            // Top arc cap
+            // left arc cap (X < outer_lx)
             intersection() {
-                translate([arm_w/2, frame_y/2, outer_arc_cz])
+                translate([p_lcx, frame_y/2, p_cz])
                     rotate([90, 0, 0])
-                        cylinder(r=R_outer, h=frame_y + 0.2, center=true, $fn=60);
-                translate([-1, -0.1, outer_rect_h])
-                    cube([arm_w + 2, frame_y + 0.2, R_outer]);
+                        cylinder(r=R_outer, h=frame_y+0.2, center=true, $fn=60);
+                translate([-(R_outer+1), -0.1, -0.1])
+                    cube([R_outer+1+outer_lx, frame_y+0.2, frame_z+0.2]);
             }
 
-            // Bottom arc cap
+            // right arc cap (X > outer_rx)
             intersection() {
-                translate([arm_w/2, frame_y/2, outer_bot_cz])
+                translate([p_rcx, frame_y/2, p_cz])
                     rotate([90, 0, 0])
-                        cylinder(r=R_outer, h=frame_y + 0.2, center=true, $fn=60);
-                translate([-1, -0.1, -0.1])
-                    cube([arm_w + 2, frame_y + 0.2, outer_bot_rect_z + 0.2]);
+                        cylinder(r=R_outer, h=frame_y+0.2, center=true, $fn=60);
+                translate([outer_rx, -0.1, -0.1])
+                    cube([R_outer+1, frame_y+0.2, frame_z+0.2]);
             }
         }
 
-        // Glass pocket: straight section
-        translate([wall, -0.1, wall + bot_rect_z])
-            cube([lens_w, lens_t + clearance + 0.1, lens_rect_h - bot_rect_z]);
+        // ── glass pocket: straight section ────────────────────────
+        translate([inner_lx, -0.1, wall])
+            cube([inner_rx - inner_lx, lens_t + clearance + 0.1, lens_w]);
 
-        // Glass pocket: top arc cap
+        // ── glass pocket: left arc cap ────────────────────────────
         intersection() {
-            translate([arm_w/2, frame_y/2, wall + lens_arc_cz])
+            translate([p_lcx, frame_y/2, p_cz])
                 rotate([90, 0, 0])
-                    cylinder(r=lens_top_r + clearance/2,
-                             h=lens_t + clearance + 0.2, center=true, $fn=60);
-            translate([-1, -0.1, wall + lens_rect_h])
-                cube([arm_w + 2, frame_y + 0.2, lens_top_r + 1]);
+                    cylinder(r=p_r, h=lens_t+clearance+0.2, center=true, $fn=60);
+            translate([-(p_r+1), -0.1, wall])
+                cube([p_r+1+inner_lx, lens_t+clearance+0.2, lens_w]);
         }
 
-        // Glass pocket: bottom arc cap
+        // ── glass pocket: right arc cap ───────────────────────────
         intersection() {
-            translate([arm_w/2, frame_y/2, wall + lens_top_r])
+            translate([p_rcx, frame_y/2, p_cz])
                 rotate([90, 0, 0])
-                    cylinder(r=lens_top_r + clearance/2,
-                             h=lens_t + clearance + 0.2, center=true, $fn=60);
-            translate([-1, -0.1, wall - 0.1])
-                cube([arm_w + 2, frame_y + 0.2, bot_rect_z + 0.2]);
+                    cylinder(r=p_r, h=lens_t+clearance+0.2, center=true, $fn=60);
+            translate([inner_rx, -0.1, wall])
+                cube([p_r+1, lens_t+clearance+0.2, lens_w]);
         }
     }
 }

@@ -32,7 +32,7 @@ VIEWS = [
 ]
 
 # Approximate model centre (mm) — body 47×34, total height ~61
-CX, CY, CZ = 24, 17, 33
+CX, CY, CZ = 24, 17, 27
 
 IMGW, IMGH   = 900, 700
 COLORSCHEME  = 'DeepOcean'
