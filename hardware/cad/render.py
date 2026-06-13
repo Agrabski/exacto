@@ -26,9 +26,9 @@ DEFAULT_OUT = Path(__file__).parent / 'sight_render.png'
 #   rz = azimuth   — 0=front, 90=right, 180=rear, 270=left
 #   dist = mm from look-at point to camera
 VIEWS = [
-    ('Rear-right isometric', 50,  30, 230),
-    ('Side profile',          10,  95, 200),
-    ('Front-left isometric',  50, 215, 230),
+    ('Rear-right isometric',  50,  30, 230),
+    ('Front aperture (45°)',   20, 180, 210),
+    ('Front-left isometric',  40, 215, 230),
 ]
 
 # Approximate model centre (mm) — body 47×34, total height ~61
