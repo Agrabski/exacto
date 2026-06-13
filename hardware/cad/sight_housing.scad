@@ -247,11 +247,23 @@ module lens_frame() {
 }
 
 // ── Glass frame at angle ─────────────────────────────────────
+// The lens_frame is centred in X; rectangular arms extend from each
+// end of the frame through the shroud side walls so the whole
+// assembly is one merged solid.
 module glass_frame_mount() {
     translate([body_w/2, glass_cy, glass_cz])
-        rotate([90 - angle, 0, 0])
+        rotate([90 - angle, 0, 0]) {
             translate([-arm_w/2, -frame_y/2, -frame_z/2])
                 lens_frame();
+
+            // Left arm: spans gap from frame end to left shroud wall
+            translate([-body_w/2, -frame_y/2, -frame_z/2])
+                cube([body_w/2 - arm_w/2, frame_y, frame_z]);
+
+            // Right arm: spans gap from frame end to right shroud wall
+            translate([arm_w/2, -frame_y/2, -frame_z/2])
+                cube([body_w/2 - arm_w/2, frame_y, frame_z]);
+        }
 }
 
 // ── Full housing ─────────────────────────────────────────────
