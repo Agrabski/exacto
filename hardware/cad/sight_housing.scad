@@ -83,14 +83,19 @@ module rounded_box(w, d, h, r=2) {
 }
 
 // ── Screen body ──────────────────────────────────────────────
+// Optics-only housing: OLED PCB sits in a top pocket; all other
+// electronics (MCU, battery, USB) live in a separate external box
+// connected through the rear ribbon-cable slot.
 // Display window faces UP (+Z).  Y=0 = rear, Y=body_d = front.
 module screen_body() {
     difference() {
         rounded_box(body_w, body_d, body_height);
 
-        // PCB pocket
-        translate([wall, wall, body_height - disp_pcb_t - clearance])
-            cube([disp_pcb_w, disp_pcb_h, disp_pcb_t + clearance + 0.1]);
+        // PCB pocket — clearance/2 on every side so PCB drops in freely
+        translate([wall - clearance/2, wall - clearance/2,
+                   body_height - disp_pcb_t - clearance])
+            cube([disp_pcb_w + clearance, disp_pcb_h + clearance,
+                  disp_pcb_t + clearance + 0.1]);
 
         // Active-area window in top face
         translate([
@@ -100,7 +105,7 @@ module screen_body() {
         ])
             cube([disp_active_w, disp_active_h, wall + 0.2]);
 
-        // PCB mount holes ø2.10
+        // PCB mount holes ø2.10 — M2 screws self-tap into body top wall
         for (sx=[-1,1], sy=[-1,1])
             translate([
                 wall + disp_pcb_w/2 + sx*(disp_pcb_w/2 - disp_hole_off_x),
@@ -109,13 +114,9 @@ module screen_body() {
             ])
                 cylinder(d=disp_hole_d, h=wall+1);
 
-        // Ribbon cable slot in rear wall (Y=0)
+        // Ribbon cable slot in rear wall (Y=0) — exits to external electronics
         translate([body_w/2-6, -0.1, body_height - disp_pcb_t - 5])
             cube([12, wall+0.2, 5]);
-
-        // USB/power port in front wall
-        translate([body_w/2-5, body_d-wall, 4])
-            cube([10, wall+0.2, 8]);
     }
 }
 
