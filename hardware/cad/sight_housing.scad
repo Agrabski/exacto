@@ -226,6 +226,22 @@ module lens_frame() {
             translate([inner_rx, -0.1, wall])
                 cube([p_r+1, lens_t+clearance+0.2, lens_w]);
         }
+
+        // ── M2 set-screw holes — glass retention ──────────────────
+        // Screws thread through the arc side walls and bear on the
+        // glass arc edges, clamping the glass via friction in Y.
+        // Assembly: insert glass from entry face (local Y=0), then
+        // tighten M2×4 set screws from the left and right outer faces.
+        //
+        // Left arc wall (X=0 face → +X, depth = wall = 2.5 mm)
+        translate([-0.1, (lens_t + clearance) / 2, frame_z / 2])
+            rotate([0, 90, 0])
+                cylinder(d = 2.1, h = wall + 0.2);
+
+        // Right arc wall (X=arm_w face → -X, depth = wall = 2.5 mm)
+        translate([arm_w + 0.1, (lens_t + clearance) / 2, frame_z / 2])
+            rotate([0, -90, 0])
+                cylinder(d = 2.1, h = wall + 0.2);
     }
 }
 
