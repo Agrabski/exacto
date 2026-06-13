@@ -208,8 +208,10 @@ module lens_frame() {
             cube([inner_rx - inner_lx, lens_t + clearance + 0.1, lens_w]);
 
         // ── glass pocket: left arc cap ────────────────────────────
+        // Cylinder centred at (lens_t+clearance)/2 so it spans Y=0..lens_t+clearance,
+        // matching the straight-section pocket depth and reaching the entry face.
         intersection() {
-            translate([p_lcx, frame_y/2, p_cz])
+            translate([p_lcx, (lens_t+clearance)/2, p_cz])
                 rotate([90, 0, 0])
                     cylinder(r=p_r, h=lens_t+clearance+0.2, center=true, $fn=60);
             translate([-(p_r+1), -0.1, wall])
@@ -218,7 +220,7 @@ module lens_frame() {
 
         // ── glass pocket: right arc cap ───────────────────────────
         intersection() {
-            translate([p_rcx, frame_y/2, p_cz])
+            translate([p_rcx, (lens_t+clearance)/2, p_cz])
                 rotate([90, 0, 0])
                     cylinder(r=p_r, h=lens_t+clearance+0.2, center=true, $fn=60);
             translate([inner_rx, -0.1, wall])
