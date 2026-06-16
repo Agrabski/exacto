@@ -4,11 +4,11 @@ use core::{
     cmp::Ordering,
     ops::{Add, Div, Mul, Neg, Sub},
 };
-use num::traits::{SaturatingAdd, SaturatingMul};
+use num::traits::{SaturatingAdd, SaturatingMul, SaturatingSub};
 use num::Bounded;
 
 pub trait Integer:
-    num::Integer + num::Signed + Copy + SaturatingMul + Bounded + SaturatingAdd + Display + SqrtOfMax
+    num::Integer + num::Signed + Copy + SaturatingMul + Bounded + SaturatingAdd + SaturatingSub + Display + SqrtOfMax
 {
 }
 
@@ -29,14 +29,14 @@ impl SqrtOfMax for u32 {
 }
 
 impl SqrtOfMax for i32 {
-    const SQRT: Self = 32761;
+    const SQRT: Self = 46340;
 }
 
 impl SqrtOfMax for i16 {
     const SQRT: Self = 181;
 }
 
-impl<T: num::Integer + num::Signed + Copy + SaturatingMul + Bounded + SaturatingAdd + Display + SqrtOfMax>
+impl<T: num::Integer + num::Signed + Copy + SaturatingMul + Bounded + SaturatingAdd + SaturatingSub + Display + SqrtOfMax>
     Integer for T
 {
 }
@@ -203,8 +203,8 @@ where
     TNumber: Integer,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let lhs = self.numerator * other.denominator;
-        let rhs = other.numerator * self.denominator;
+        let lhs = self.numerator.saturating_mul(&other.denominator);
+        let rhs = other.numerator.saturating_mul(&self.denominator);
         lhs.partial_cmp(&rhs)
     }
 }
@@ -260,15 +260,22 @@ where
     if value == TNumber::max_value() {
         return TNumber::SQRT;
     }
-    // Brute-force sqrt for integer-like types without Step trait
-    let mut x = TNumber::zero();
     let one = TNumber::one();
-    let mut square =x.saturating_mul(&x);
-    while square  <= value {
-        x = x + one;
-        square =x.saturating_mul(&x);
+    let two = one + one;
+    // 0 and 1 are their own floor-sqrt; also avoids dividing by zero below.
+    if value < two {
+        return value;
     }
-    x - one
+    // Newton's method for floor(sqrt(value)). Converges in O(log value)
+    // iterations using only add/div, so it stays cheap on an FPU-less AVR.
+    // The max_value guard above keeps `value + one` from overflowing.
+    let mut x = value;
+    let mut y = (value + one) / two;
+    while y < x {
+        x = y;
+        y = (x + value / x) / two;
+    }
+    x
 }
 
 impl<TNumber> Div<TNumber> for Fraction<TNumber>
@@ -294,7 +301,7 @@ where
     fn sub(self, rhs: Self) -> Self::Output {
         let lhs_num = self.numerator.saturating_mul(&rhs.denominator);
         let rhs_num = rhs.numerator.saturating_mul(&self.denominator);
-        let new_num = lhs_num - rhs_num;
+        let new_num = lhs_num.saturating_sub(&rhs_num);
         let new_den = self.denominator.saturating_mul(&rhs.denominator);
 
         Self {
@@ -312,8 +319,8 @@ where
     TNumber: Ord + Copy + Mul<Output = TNumber> + Integer,
 {
     fn cmp(&self, other: &Self) -> Ordering {
-        let lhs = self.numerator * other.denominator;
-        let rhs = other.numerator * self.denominator;
+        let lhs = self.numerator.saturating_mul(&other.denominator);
+        let rhs = other.numerator.saturating_mul(&self.denominator);
         lhs.cmp(&rhs)
     }
 }
@@ -474,5 +481,29 @@ mod tests {
     fn test_sqrt_32767() {
         let result = slow_sqrt(32767i16);
         assert_eq!(result, 181);
+    }
+
+    #[test]
+    fn test_slow_sqrt_i32_floor() {
+        assert_eq!(slow_sqrt(0i32), 0);
+        assert_eq!(slow_sqrt(1i32), 1);
+        assert_eq!(slow_sqrt(2i32), 1);
+        assert_eq!(slow_sqrt(15i32), 3);
+        assert_eq!(slow_sqrt(16i32), 4);
+        assert_eq!(slow_sqrt(1_000_000i32), 1000);
+        // 46340^2 = 2_147_395_600 <= i32::MAX < 46341^2
+        assert_eq!(slow_sqrt(2_147_395_600i32), 46340);
+        assert_eq!(slow_sqrt(i32::MAX - 1), 46340);
+        assert_eq!(slow_sqrt(i32::MAX), 46340);
+    }
+
+    #[test]
+    fn test_ord_no_overflow_large_i32() {
+        // Cross-multiplying these naively overflows i32; saturating mul must
+        // still order them correctly.
+        let a = Fraction::new(100_000, 1);
+        let b = Fraction::new(200_000, 1);
+        assert!(a < b);
+        assert!(b > a);
     }
 }

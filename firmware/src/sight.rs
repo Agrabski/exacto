@@ -1,4 +1,6 @@
-use ballistic_calculator::{calculate_drift, BBDrift, CalculatorConfiguration, Float, IntegerType, PI};
+use ballistic_calculator::{
+    calculate_drift, BBDrift, CalculatorConfiguration, Float, IntegerType, PI,
+};
 use embedded_graphics::prelude::Point;
 
 #[derive(PartialEq, Clone)]
@@ -35,5 +37,6 @@ impl Sight {
 }
 
 fn to_pixels(range: u8, drift: Float, axis_size: u8) -> i32 {
-    (drift * Float::from(axis_size as IntegerType) / (PI * Float::from(range as IntegerType) / 4)).value() as i32
+    (drift * Float::from(axis_size as IntegerType) / (PI * Float::from(range as IntegerType) / 4))
+        .value() as i32
 }

@@ -1,0 +1,11 @@
+[package]
+name = "trajectory_viz"
+version = "0.1.0"
+edition = "2021"
+authors = ["AGrabski <adam.gr@outlook.com>"]
+license = "GPL-3.0-or-later"
+
+[dependencies]
+ballistic_calculator = { path = "../ballistic_calculator" }
+eframe = "0.31"
+egui_plot = "0.31"

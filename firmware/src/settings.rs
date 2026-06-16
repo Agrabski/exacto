@@ -3,7 +3,7 @@ mod sub_menus;
 mod ui;
 
 use crate::{
-    encoder::RotaryEncoder,
+    buttons::ButtonEvent,
     settings::{
         sub_menus::{about_page::{AboutPage, ABOUT_PAGE}, main_menu::{MainMenuState, MainMenuType, MAIN_MENU}, sight_menu::{SightMenu, SIGHT_MENU}},
         ui::{settings_page::SettingsPageState, ClickResult, SubMenuPointer, SubMenuPointerImpl},
@@ -15,11 +15,9 @@ use embedded_graphics::{
     pixelcolor::Rgb565,
     prelude::DrawTarget,
 };
-use embedded_hal::digital::InputPin;
 
 pub struct SettingsState {
     current_menu: Option<SettingsMenu>,
-    rotor_position: i16,
     states: SubMenuStates,
 }
 
@@ -85,7 +83,6 @@ impl SettingsState {
     pub fn new() -> Self {
         Self {
             current_menu: None,
-            rotor_position: 0,
             states: SubMenuStates::new(),
         }
     }
@@ -94,28 +91,12 @@ impl SettingsState {
         self.current_menu.is_some()
     }
 
-    pub fn update<A, B, SW>(
-        &mut self,
-        sight: &mut Sight,
-        encoder: &mut RotaryEncoder<A, B, SW>,
-    ) -> bool
-    where
-        A: InputPin,
-        B: InputPin,
-        SW: InputPin,
-    {
-        if encoder.is_pressed().is_ok_and(|pressed| pressed) {
-            self.rotor_position = encoder.position();
-            self.handle_press(sight)
-        } else {
-            let position = encoder.position();
-            let change = match (self.rotor_position, position) {
-                (a, b) if a > b => RotorInput::Up,
-                (a, b) if a < b => RotorInput::Down,
-                _ => return false,
-            };
-            self.rotor_position = position;
-            self.handle_rotation(sight, change)
+    pub fn update(&mut self, sight: &mut Sight, event: Option<ButtonEvent>) -> bool {
+        match event {
+            Some(ButtonEvent::Select) => self.handle_press(sight),
+            Some(ButtonEvent::Up) => self.handle_rotation(sight, RotorInput::Up),
+            Some(ButtonEvent::Down) => self.handle_rotation(sight, RotorInput::Down),
+            None => false,
         }
     }
 

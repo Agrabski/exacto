@@ -25,6 +25,7 @@ embedded-graphics-core = { version = "0.4"}
 embedded-graphics = "0.8.1"
 ssd1351="0.5.0"
 const_format = "0.2.34"
+avr-device = "0.7.0"
 [dependencies.byte-slice-cast]
 version = "1.2.2"
 default-features = false
@@ -32,7 +33,7 @@ default-features = false
 [dependencies.arduino-hal]
 git = "https://github.com/rahix/avr-hal"
 rev = "fafaf587a32a4500239fd073f89d1b9c36b48092"
-features = ["arduino-uno"]
+features = ["arduino-mega2560"]
 
 
 

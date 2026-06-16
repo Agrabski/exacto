@@ -1,13 +1,11 @@
 use core::fmt::Debug;
 use embedded_graphics::{
-    mono_font::{ascii::FONT_4X6, MonoTextStyle},
     pixelcolor::Rgb565,
     prelude::{DrawTarget, Point, RgbColor},
-    text::{renderer::CharacterStyle, Text},
 };
-use embedded_graphics_core::Drawable;
 
 use crate::draw_reticle;
+use crate::text::draw_text;
 
 pub enum TextType {
     Normal,
@@ -63,24 +61,16 @@ where
     TGraphicsInterface: DrawTarget<Color = Rgb565, Error: Debug>,
 {
     fn render_text_inner(&mut self, text: &str, position: Point, _length: u8, text_type: TextType) {
-        let style = pick_text_style(text_type);
-        Text::new(text, position, style).draw(self.display).unwrap();
+        let (foreground, background) = pick_text_colors(text_type);
+        draw_text(self.display, text, position, foreground, background);
     }
 }
 
-fn pick_text_style(text_type: TextType) -> MonoTextStyle<'static, Rgb565> {
-    let style = match text_type {
-        TextType::Normal => MonoTextStyle::new(&FONT_4X6, Rgb565::WHITE),
-        TextType::Highlighted => {
-            let mut style = MonoTextStyle::new(&FONT_4X6, Rgb565::RED);
-            style.set_background_color(Some(Rgb565::GREEN));
-            style
-        }
-        TextType::Selected => {
-            let mut style = MonoTextStyle::new(&FONT_4X6, Rgb565::GREEN);
-            style.set_background_color(Some(Rgb565::RED));
-            style
-        }
-    };
-    style
+/// (foreground, background) colours for a given text type.
+fn pick_text_colors(text_type: TextType) -> (Rgb565, Rgb565) {
+    match text_type {
+        TextType::Normal => (Rgb565::WHITE, Rgb565::BLACK),
+        TextType::Highlighted => (Rgb565::RED, Rgb565::GREEN),
+        TextType::Selected => (Rgb565::GREEN, Rgb565::RED),
+    }
 }

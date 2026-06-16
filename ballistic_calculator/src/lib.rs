@@ -4,7 +4,7 @@ pub mod physics;
 use crate::physics::{drag_force, magnus_force, velocity_from_kinetic_energy};
 use fraction::Fraction;
 
-pub type IntegerType = i16;
+pub type IntegerType = i32;
 pub type Float = Fraction<IntegerType>;
 
 pub const PI: Float = Float {
@@ -23,6 +23,8 @@ pub struct CalculatorConfiguration {
     pub bb_weight: Float,                      // grams
     pub muzzle_energy: Float,                  // Joules
     pub angle_of_elevation: Float,
+    pub air_density: Float,      // kg/m^3
+    pub drag_coefficient: Float, // dimensionless
 }
 
 impl Default for CalculatorConfiguration {
@@ -32,14 +34,17 @@ impl Default for CalculatorConfiguration {
             bb_weight: Float::new(4, 10000),
             muzzle_energy: Float::new(19, 10), // 1.5 Joules
             angle_of_elevation: Float::zero(),
+            air_density: AIR_DENSITY,
+            drag_coefficient: DRAG_COEFFICIENT,
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BBDrift {
-    pub drift_x: Float, // meters
-    pub drift_y: Float, // meters
+    pub drift_x: Float,        // meters
+    pub drift_y: Float,        // meters
+    pub time_of_flight: Float, // seconds
 }
 
 impl Default for BBDrift {
@@ -47,13 +52,18 @@ impl Default for BBDrift {
         BBDrift {
             drift_x: Float::zero(),
             drift_y: Float::zero(),
+            time_of_flight: Float::zero(),
         }
     }
 }
 
 impl BBDrift {
-    pub fn new(drift_x: Float, drift_y: Float) -> Self {
-        BBDrift { drift_x, drift_y }
+    pub fn new(drift_x: Float, drift_y: Float, time_of_flight: Float) -> Self {
+        BBDrift {
+            drift_x,
+            drift_y,
+            time_of_flight,
+        }
     }
 }
 
@@ -75,6 +85,8 @@ pub fn calculate_drift(
     let step = SIMULATION_STEP;
     let mut traveled = Float::from(0);
 
+    let mut vertical_velocity = Float::zero();
+
     while traveled < range && state.kinetic_energy > Float::zero() {
         let v = state.velocity();
         if v <= Float::zero() {
@@ -84,10 +96,11 @@ pub fn calculate_drift(
         // Drag force: Fd = 0.5 * Cd * rho * A * v^2
         let radius = BB_DIAMETER / 2; // mm to meters
         let area = PI * radius * radius;
-        let drag_force = drag_force(v, DRAG_COEFFICIENT, AIR_DENSITY, area);
+        let drag_force = drag_force(v, config.drag_coefficient, config.air_density, area);
 
         // Magnus force (simplified): Fm = S * v x w, S = 0.5 * rho * A * r
-        let magnus_force = magnus_force(state.velocity(), state.rotation, AIR_DENSITY, radius);
+        let magnus_force =
+            magnus_force(state.velocity(), state.rotation, config.air_density, radius);
 
         // Assume drag acts along -v, Magnus acts perpendicular (in x)
         let dt = (step / v).abs();
@@ -98,7 +111,7 @@ pub fn calculate_drift(
         drift_x = drift_x + (accel_x * dt_time * dt_time) / 2;
 
         // Update drift_y (gravity, vertical)
-        let accel_y = (magnus_force / state.mass) -GRAVITY;
+        let accel_y = (magnus_force / state.mass) - GRAVITY;
         drift_y = drift_y + (accel_y * dt_time * dt_time / 2);
 
         // Update kinetic energy (drag)
@@ -112,7 +125,7 @@ pub fn calculate_drift(
         traveled = traveled + step;
     }
 
-    BBDrift::new(drift_x, drift_y)
+    BBDrift::new(drift_x, drift_y, state.time)
 }
 
 struct BBStateVector {
@@ -139,6 +152,8 @@ mod tests {
             bb_weight: Float::new(4, 10000),
             muzzle_energy: Float::new(15, 10),
             angle_of_elevation: Float::zero(),
+            air_density: AIR_DENSITY,
+            drag_coefficient: DRAG_COEFFICIENT,
         }
     }
 
@@ -217,12 +232,14 @@ mod tests {
                 bb_weight: Float::from(1),
                 muzzle_energy: Float::from(1),
                 angle_of_elevation: Float::zero(),
+                ..CalculatorConfiguration::default()
             },
             CalculatorConfiguration {
                 magnus_effect_angular_velocity: Float::from(-10),
                 bb_weight: Float::from(1),
                 muzzle_energy: Float::from(1),
                 angle_of_elevation: Float::zero(),
+                ..CalculatorConfiguration::default()
             },
         ];
         let ranges = [

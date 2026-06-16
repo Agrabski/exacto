@@ -1,20 +1,19 @@
 #![no_std]
 #![no_main]
+#![feature(abi_avr_interrupt)]
+mod buttons;
 mod display_initialisation;
 mod embedded_graphics_transform;
-mod encoder;
 mod settings;
 mod sight;
+mod text;
 
 use core::fmt::Debug;
 
 use ::ballistic_calculator::{BBDrift, CalculatorConfiguration};
 use arduino_hal::default_serial;
-use embedded_graphics::mono_font::ascii::FONT_4X6;
-use embedded_graphics::mono_font::MonoTextStyle;
 use embedded_graphics::prelude::{DrawTarget, Primitive};
-use embedded_graphics::primitives::PrimitiveStyleBuilder;
-use embedded_graphics::text::Text;
+use embedded_graphics::primitives::{Line, PrimitiveStyleBuilder};
 use embedded_graphics::Drawable;
 use embedded_graphics::{
     pixelcolor::Rgb565,
@@ -23,21 +22,23 @@ use embedded_graphics::{
 use embedded_graphics_core::{prelude::Size, primitives::Rectangle};
 
 use crate::display_initialisation::create_display;
-use crate::encoder::RotaryEncoder;
 use crate::sight::Sight;
 
 #[arduino_hal::entry]
 fn main() -> ! {
     let dp = arduino_hal::Peripherals::take().unwrap();
     let pins = arduino_hal::pins!(dp);
-    let cs = pins.d10.into_output();
-    let clk = pins.d13.into_output();
-    let din = pins.d11.into_output();
+    // Hardware SPI on the ATmega2560 lives on PB0-PB3 (Mega pins D53/D52/D51/D50).
+    let cs = pins.d53.into_output(); // PB0 / SS
+    let clk = pins.d52.into_output(); // PB1 / SCK
+    let din = pins.d51.into_output(); // PB2 / MOSI
     let rst = pins.d4.downgrade().into_output();
     let dc = pins.d5.downgrade().into_output();
-    let miso = pins.d12.into_pull_up_input();
+    let miso = pins.d50.into_pull_up_input(); // PB3 / MISO
 
     let mut interface = create_display(dp.SPI, cs, clk, din, rst, dc, miso);
+
+    display_startup_screen(&mut interface);
 
     let mut sight = Sight {
         x_zero: 0,
@@ -48,46 +49,124 @@ fn main() -> ! {
         drift: Point::default(),
         configuration: CalculatorConfiguration::default(),
     };
-    let pin_a = pins.d2.into_pull_up_input();
-    let pin_b = pins.d3.into_pull_up_input();
-    let pin_sw = pins.d9.into_pull_up_input();
-    let mut serial = default_serial!(dp, pins, 57600);
+    // Buttons: active-low with internal pull-ups. up=d2 (INT4), down=d3 (INT5),
+    // select=d18 (INT3). The interrupt vectors read the port directly, so the pin
+    // handles are dropped once the pull-ups/DDR are latched.
+    let _up = pins.d2.into_pull_up_input();
+    let _down = pins.d3.into_pull_up_input();
+    let _select = pins.d18.into_pull_up_input();
 
-    let mut encoder = RotaryEncoder::new(pin_a, pin_b, pin_sw).unwrap();
+    // Falling-edge sense (ISCx1:ISCx0 = 0b10) on INT3/INT4/INT5, then unmask them.
+    dp.EXINT.eicra.modify(|_, w| w.isc3().val_0x02()); // INT3 (d18)
+    dp.EXINT
+        .eicrb
+        .modify(|_, w| w.isc4().val_0x02().isc5().val_0x02()); // INT4 (d2), INT5 (d3)
+    dp.EXINT.eifr.write(|w| w.bits(0b0011_1000)); // clear any pending INT3/4/5 flags
+    dp.EXINT.eimsk.write(|w| w.bits(0b0011_1000)); // enable INT3/4/5
+    unsafe { avr_device::interrupt::enable() };
+
+    let mut serial = default_serial!(dp, pins, 57600);
 
     let mut last_update_loop = 0;
     let mut settings_state = settings::SettingsState::new();
-    let mut last_sight = sight.clone();
-
+    interface.clear_oled();
+    let mut settings_were_opened = false;
+    ufmt::uwriteln!(&mut serial, "start").ok();
+    display_sight(&mut interface, &sight);
     loop {
-        encoder.update().unwrap();
-        ufmt::uwriteln!(&mut serial, "position {}", encoder.position()).ok();
+        let mut last_sight = sight.clone();
         last_update_loop += 1;
-        let settings_was_updated = settings_state.update(&mut sight, &mut encoder);
+        let event = buttons::poll();
+        let settings_was_updated = settings_state.update(&mut sight, event);
         if settings_was_updated || settings_state.is_open() {
             if settings_was_updated {
                 interface.clear_oled();
                 settings_state.draw(&mut interface, &sight);
                 last_update_loop = 8000;
+                settings_were_opened = true;
             }
         } else {
-            let mut position = encoder.position();
-            if position < 0 {
-                encoder.reset();
-                position = 0;
-            }
-            if sight.range != position as u8 {
-                sight.range = position as u8;
+            if let Some(event) = event {
+                if event == buttons::ButtonEvent::Up {
+                    sight.range += 5;
+                }
+                if event == buttons::ButtonEvent::Down && sight.range >= 5 {
+                    sight.range -= 5;
+                }
                 sight.update();
             }
-            if last_update_loop > 800 && last_sight != sight {
+            if last_sight != sight || settings_were_opened {
                 interface.clear_oled();
                 display_sight(&mut interface, &sight);
                 last_update_loop = 0;
+                settings_were_opened = false;
             }
         }
-        
     }
+}
+
+fn display_startup_screen<T>(interface: &mut T)
+where
+    T: DrawTarget<Color = Rgb565, Error: Debug>,
+{
+    let dimensions = interface.bounding_box().size;
+    text::draw_text(
+        interface,
+        "EXACTO XM1E0",
+        Point::new((dimensions.width / 2 - 12) as i32, 0),
+        Rgb565::WHITE,
+        Rgb565::BLACK,
+    );
+    Rectangle::new(Point::new(10, 10), Size::new(40, 30))
+        .into_styled(PrimitiveStyleBuilder::new().fill_color(Rgb565::RED).build())
+        .draw(interface)
+        .unwrap();
+
+    arduino_hal::delay_ms(200);
+
+    Rectangle::new(Point::new(15, 15), Size::new(40, 30))
+        .into_styled(
+            PrimitiveStyleBuilder::new()
+                .fill_color(Rgb565::GREEN)
+                .build(),
+        )
+        .draw(interface)
+        .unwrap();
+
+    arduino_hal::delay_ms(200);
+
+    Rectangle::new(Point::new(20, 20), Size::new(40, 30))
+        .into_styled(
+            PrimitiveStyleBuilder::new()
+                .fill_color(Rgb565::BLUE)
+                .build(),
+        )
+        .draw(interface)
+        .unwrap();
+
+    arduino_hal::delay_ms(200);
+    let line_style = PrimitiveStyleBuilder::new()
+        .stroke_color(Rgb565::WHITE)
+        .stroke_width(1)
+        .build();
+
+    Line::new(
+        Point::new(0, 0),
+        Point::new(dimensions.width as i32 - 1, dimensions.height as i32 - 1),
+    )
+    .into_styled(line_style)
+    .draw(interface)
+    .unwrap();
+
+    Line::new(
+        Point::new(0, dimensions.height as i32 - 1),
+        Point::new(dimensions.width as i32 - 1, 0),
+    )
+    .into_styled(line_style)
+    .draw(interface)
+    .unwrap();
+
+    arduino_hal::delay_ms(500);
 }
 
 fn display_sight<T>(interface: &mut T, sight: &Sight)
@@ -145,16 +224,10 @@ fn write_value<T>(interface: &mut T, value: u8, position: Point, buffer: &mut [u
 where
     T: DrawTarget<Color = Rgb565, Error: Debug>,
 {
-    let style = MonoTextStyle::new(&FONT_4X6, Rgb565::WHITE);
-
     format_two_digit_16(value as i16, buffer);
-    Text::new(
-        unsafe { str::from_utf8_unchecked(&buffer) },
-        position,
-        style,
-    )
-    .draw(interface)
-    .unwrap();
+    // `buffer` holds ASCII produced by `format_two_digit_16`, so it is valid UTF-8.
+    let text = unsafe { core::str::from_utf8_unchecked(buffer) };
+    text::draw_text(interface, text, position, Rgb565::WHITE, Rgb565::BLACK);
 }
 
 fn format_two_digit_16(num: i16, buf: &mut [u8]) {
