@@ -16,18 +16,6 @@ pub trait SqrtOfMax {
     const SQRT: Self;
 }
 
-impl SqrtOfMax for u8 {
-    const SQRT: Self = 16;
-}
-
-impl SqrtOfMax for u16 {
-    const SQRT: Self = 256;
-}
-
-impl SqrtOfMax for u32 {
-    const SQRT: Self = 65536;
-}
-
 impl SqrtOfMax for i32 {
     const SQRT: Self = 46340;
 }
@@ -49,10 +37,17 @@ fn gcd<TNumber: Integer>(mut a: TNumber, mut b: TNumber) -> TNumber {
         a = tmp;
     }
     assert!(a != TNumber::zero());
-    a
+    // The Euclidean loop can leave `a` negative when the inputs are negative
+    // (`%` keeps the sign of the dividend). Always return a positive divisor so
+    // callers can divide either operand by it without flipping its sign.
+    if a < TNumber::zero() {
+        safe_neg(a)
+    } else {
+        a
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub struct Fraction<TNumber: Integer> {
     pub numerator: TNumber,
     pub denominator: TNumber,
@@ -71,7 +66,7 @@ where
 
     pub fn reciprocal(&self) -> Self {
         assert!(
-            self.numerator > TNumber::zero(),
+            self.numerator != TNumber::zero(),
             "Cannot take reciprocal of zero."
         );
         Self {
@@ -88,14 +83,22 @@ where
     }
 
     pub fn sqrt(&self) -> Self {
-        if self.numerator == TNumber::zero() {
+        // Normalize first so the sign lives in the numerator and the
+        // denominator is positive; `slow_sqrt` is only meaningful on
+        // non-negative values.
+        let normalized = self.normalized();
+        assert!(
+            normalized.numerator >= TNumber::zero(),
+            "Cannot take the square root of a negative fraction."
+        );
+
+        if normalized.numerator == TNumber::zero() {
             return Self::zero();
         }
 
-        // Initial guess (good enough for most ranges)
         Self {
-            denominator: slow_sqrt(self.denominator),
-            numerator: slow_sqrt(self.numerator),
+            denominator: slow_sqrt(normalized.denominator),
+            numerator: slow_sqrt(normalized.numerator),
         }
     }
 
@@ -119,12 +122,27 @@ where
     }
 
     pub fn value(&self) -> TNumber {
-        self.numerator / self.denominator
+        assert!(
+            self.denominator != TNumber::zero(),
+            "Cannot evaluate a fraction with a zero denominator."
+        );
+        // Normalizing forces a positive denominator, which avoids the
+        // `MIN / -1` overflow that a raw division would hit on an
+        // un-normalized fraction with a negative denominator.
+        let normalized = self.normalized();
+        normalized.numerator / normalized.denominator
     }
 
     pub fn normalized(&self) -> Self {
         let zero = TNumber::zero();
         let one = TNumber::one();
+
+        // A zero numerator is canonically 0/1. Handling it up front keeps
+        // `gcd` from being called with a zero argument (which would trip its
+        // assertion for the 0/0 case) and avoids depending on the denominator.
+        if self.numerator == zero {
+            return Self::zero();
+        }
 
         let mut num = self.numerator;
         let mut den = self.denominator;
@@ -135,11 +153,13 @@ where
             den = safe_neg(den)
         }
 
-        // Only try to reduce if TNumber supports remainder
+        // `gcd` returns a positive divisor, so the sign is preserved and a
+        // divisor of 1 (the only case that could trigger a `MIN / -1`
+        // overflow) is skipped entirely.
         let reduced = {
             let divisor = gcd(num, den);
 
-            if divisor.abs() != one {
+            if divisor != one {
                 (num / divisor, den / divisor)
             } else {
                 (num, den)
@@ -161,7 +181,8 @@ where
 
     fn neg(self) -> Self::Output {
         Self {
-            numerator: -self.numerator,
+            // `safe_neg` keeps `MIN` from overflowing, matching `abs`.
+            numerator: safe_neg(self.numerator),
             denominator: self.denominator,
         }
     }
@@ -174,9 +195,18 @@ where
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
+        let a = self.normalized();
+        let b = rhs.normalized();
+
+        // Cancel common factors across the cross terms *before* multiplying so
+        // representable results don't saturate just because the intermediate
+        // products would have overflowed.
+        let g1 = gcd(a.numerator, b.denominator);
+        let g2 = gcd(b.numerator, a.denominator);
+
         Self {
-            numerator: self.numerator.saturating_mul(&rhs.numerator),
-            denominator: self.denominator.saturating_mul(&rhs.denominator),
+            numerator: (a.numerator / g1).saturating_mul(&(b.numerator / g2)),
+            denominator: (a.denominator / g2).saturating_mul(&(b.denominator / g1)),
         }
         .normalized()
     }
@@ -189,10 +219,20 @@ where
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        assert!(rhs.numerator > TNumber::zero(), "Cannot divide by zero.");
+        // Only a zero numerator is an invalid divisor; negative divisors are
+        // perfectly fine.
+        assert!(rhs.numerator != TNumber::zero(), "Cannot divide by zero.");
+        let a = self.normalized();
+        let b = rhs.normalized();
+
+        // a/b = (a.num * b.den) / (a.den * b.num); cancel the cross terms first
+        // to keep representable results from saturating.
+        let g1 = gcd(a.numerator, b.numerator);
+        let g2 = gcd(a.denominator, b.denominator);
+
         Self {
-            numerator: self.numerator.saturating_mul(&rhs.denominator),
-            denominator: self.denominator.saturating_mul(&rhs.numerator),
+            numerator: (a.numerator / g1).saturating_mul(&(b.denominator / g2)),
+            denominator: (a.denominator / g2).saturating_mul(&(b.numerator / g1)),
         }
         .normalized()
     }
@@ -203,9 +243,18 @@ where
     TNumber: Integer,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let lhs = self.numerator.saturating_mul(&other.denominator);
-        let rhs = other.numerator.saturating_mul(&self.denominator);
-        lhs.partial_cmp(&rhs)
+        Some(self.cmp(other))
+    }
+}
+
+impl<TNumber> PartialEq for Fraction<TNumber>
+where
+    TNumber: Integer,
+{
+    fn eq(&self, other: &Self) -> bool {
+        // Compare by value so that, e.g., 6/12 and 1/2 are equal and `Eq`
+        // stays consistent with `Ord`.
+        self.cmp(other) == Ordering::Equal
     }
 }
 
@@ -225,10 +274,19 @@ where
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let lhs_num = self.numerator.saturating_mul(&rhs.denominator);
-        let rhs_num = rhs.numerator.saturating_mul(&self.denominator);
+        let a = self.normalized();
+        let b = rhs.normalized();
+
+        // Use the least common denominator (a.den / g * b.den) instead of the
+        // full product so the denominator only grows by the factor it must.
+        let g = gcd(a.denominator, b.denominator);
+        let a_factor = b.denominator / g;
+        let b_factor = a.denominator / g;
+
+        let lhs_num = a.numerator.saturating_mul(&a_factor);
+        let rhs_num = b.numerator.saturating_mul(&b_factor);
         let new_num = lhs_num.saturating_add(&rhs_num);
-        let new_den = self.denominator.saturating_mul(&rhs.denominator);
+        let new_den = a.denominator.saturating_mul(&a_factor);
 
         Self {
             numerator: new_num,
@@ -249,7 +307,7 @@ where
             numerator: rhs,
             denominator: TNumber::one(),
         };
-        (self + rhs_frac).normalized()
+        self + rhs_frac
     }
 }
 
@@ -285,6 +343,7 @@ where
     type Output = Self;
 
     fn div(self, rhs: TNumber) -> Self::Output {
+        assert!(rhs != TNumber::zero(), "Cannot divide by zero.");
         Self {
             numerator: self.numerator,
             denominator: self.denominator.saturating_mul(&rhs),
@@ -299,10 +358,17 @@ where
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let lhs_num = self.numerator.saturating_mul(&rhs.denominator);
-        let rhs_num = rhs.numerator.saturating_mul(&self.denominator);
+        let a = self.normalized();
+        let b = rhs.normalized();
+
+        let g = gcd(a.denominator, b.denominator);
+        let a_factor = b.denominator / g;
+        let b_factor = a.denominator / g;
+
+        let lhs_num = a.numerator.saturating_mul(&a_factor);
+        let rhs_num = b.numerator.saturating_mul(&b_factor);
         let new_num = lhs_num.saturating_sub(&rhs_num);
-        let new_den = self.denominator.saturating_mul(&rhs.denominator);
+        let new_den = a.denominator.saturating_mul(&a_factor);
 
         Self {
             numerator: new_num,
@@ -316,12 +382,55 @@ impl<TNumber> Eq for Fraction<TNumber> where TNumber: Integer {}
 // --- Ord ---
 impl<TNumber> Ord for Fraction<TNumber>
 where
-    TNumber: Ord + Copy + Mul<Output = TNumber> + Integer,
+    TNumber: Integer,
 {
     fn cmp(&self, other: &Self) -> Ordering {
-        let lhs = self.numerator.saturating_mul(&other.denominator);
-        let rhs = other.numerator.saturating_mul(&self.denominator);
-        lhs.cmp(&rhs)
+        // Normalize so both denominators are positive, then compare without
+        // ever multiplying (see `cmp_frac`) so the ordering can't be lost to
+        // saturation.
+        let a = self.normalized();
+        let b = other.normalized();
+        cmp_frac(a.numerator, a.denominator, b.numerator, b.denominator)
+    }
+}
+
+/// Compares `n1/d1` against `n2/d2` for strictly positive denominators using a
+/// continued-fraction expansion. It only ever takes floor-divisions and
+/// remainders of the running operands, so no intermediate ever overflows and
+/// the result is always exact.
+fn cmp_frac<TNumber: Integer>(
+    mut n1: TNumber,
+    mut d1: TNumber,
+    mut n2: TNumber,
+    mut d2: TNumber,
+) -> Ordering {
+    let zero = TNumber::zero();
+    loop {
+        let q1 = n1.div_floor(&d1);
+        let q2 = n2.div_floor(&d2);
+        if q1 != q2 {
+            return q1.cmp(&q2);
+        }
+
+        let r1 = n1.mod_floor(&d1);
+        let r2 = n2.mod_floor(&d2);
+        match (r1 == zero, r2 == zero) {
+            (true, true) => return Ordering::Equal,
+            (true, false) => return Ordering::Less,
+            (false, true) => return Ordering::Greater,
+            (false, false) => {
+                // Integer parts match, so compare the fractional parts
+                // r1/d1 vs r2/d2. Taking reciprocals flips the order, so on the
+                // next pass we compare d2/r2 vs d1/r1 (operands swapped), whose
+                // result equals cmp(r1/d1, r2/d2). Both new denominators
+                // (r1, r2) are strictly positive, preserving the invariant.
+                let (next_n1, next_d1, next_n2, next_d2) = (d2, r2, d1, r1);
+                n1 = next_n1;
+                d1 = next_d1;
+                n2 = next_n2;
+                d2 = next_d2;
+            }
+        }
     }
 }
 
@@ -505,5 +614,148 @@ mod tests {
         let b = Fraction::new(200_000, 1);
         assert!(a < b);
         assert!(b > a);
+    }
+
+    // --- Issue 1: Neg overflow on MIN ---
+    #[test]
+    fn test_neg_min_does_not_overflow() {
+        let a = Fraction::new(i32::MIN, 1);
+        let result = -a;
+        // safe_neg saturates MIN to MAX rather than overflowing.
+        assert_eq!(result.numerator, i32::MAX);
+        assert_eq!(result.denominator, 1);
+    }
+
+    // --- Issue 2: reciprocal / div reject only zero, not negatives ---
+    #[test]
+    fn test_reciprocal_of_negative() {
+        let a = Fraction::new(-2, 3);
+        let result = a.reciprocal();
+        assert_eq!(result, Fraction::new(-3, 2));
+    }
+
+    #[test]
+    fn test_div_by_negative_fraction() {
+        let a = Fraction::new(1, 2);
+        let b = Fraction::new(-1, 3);
+        let result = a / b;
+        assert_eq!(result, Fraction::new(-3, 2));
+    }
+
+    // --- Issue 3: value() on a negative denominator must not overflow ---
+    #[test]
+    fn test_value_min_over_neg_one_does_not_overflow() {
+        let a = Fraction::new(i32::MIN, -1);
+        // True value (2_147_483_648) is out of range; saturating to MAX is the
+        // expected behaviour, and crucially this must not panic.
+        assert_eq!(a.value(), i32::MAX);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_value_zero_denominator_panics() {
+        let a = Fraction::new(1, 0);
+        let _ = a.value();
+    }
+
+    // --- Issue 4: dividing by the integer zero must be rejected ---
+    #[test]
+    #[should_panic]
+    fn test_div_by_integer_zero_panics() {
+        let a = Fraction::new(1, 2);
+        let _ = a / 0;
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_div_by_fraction_zero_panics() {
+        let a = Fraction::new(1, 2);
+        let _ = a / Fraction::new(0, 5);
+    }
+
+    // --- Issue 5: normalizing 0/0 must not panic ---
+    #[test]
+    fn test_normalize_zero_over_zero() {
+        let a = Fraction::new(0, 0);
+        assert_eq!(a.normalized(), Fraction::zero());
+    }
+
+    // --- gcd sign: normalized must keep a positive denominator ---
+    #[test]
+    fn test_normalize_negative_keeps_positive_denominator() {
+        let a = Fraction::new(-6, 4).normalized();
+        assert_eq!(a.numerator, -3);
+        assert_eq!(a.denominator, 2);
+        assert!(a.denominator > 0);
+    }
+
+    #[test]
+    fn test_normalize_negative_denominator() {
+        let a = Fraction::new(6, -4).normalized();
+        assert_eq!(a.numerator, -3);
+        assert_eq!(a.denominator, 2);
+    }
+
+    // --- Issue 6: arithmetic must not saturate on representable results ---
+    #[test]
+    fn test_mul_no_spurious_saturation() {
+        // Naive cross-multiply: 50000*60000 = 3e9 overflows i32, so a
+        // saturating product would give the wrong answer. True value is 3/2.
+        let a = Fraction::new(50_000, 40_000);
+        let b = Fraction::new(60_000, 50_000);
+        assert_eq!(a * b, Fraction::new(3, 2));
+    }
+
+    #[test]
+    fn test_add_no_spurious_saturation() {
+        // Naive common denominator 50000*50000 overflows; LCM keeps it at 50000.
+        let a = Fraction::new(1, 50_000);
+        let b = Fraction::new(1, 50_000);
+        assert_eq!(a + b, Fraction::new(1, 25_000));
+    }
+
+    #[test]
+    fn test_div_no_spurious_saturation() {
+        // (50000/40000) / (60000/50000) = 25/24 ... cross terms overflow naively.
+        let a = Fraction::new(50_000, 40_000);
+        let b = Fraction::new(60_000, 50_000);
+        assert_eq!(a / b, Fraction::new(25, 24));
+    }
+
+    // --- Issue 7: comparison must not collapse to Equal under saturation ---
+    #[test]
+    fn test_cmp_no_spurious_equal() {
+        // Both cross-products (50000*50000 and 47000*48000) saturate to i32::MAX
+        // with the old approach, yielding a false Equal. a (~1.04) > b (~0.94).
+        let a = Fraction::new(50_000, 48_000);
+        let b = Fraction::new(47_000, 50_000);
+        assert!(a > b);
+        assert!(b < a);
+        assert_ne!(a, b);
+    }
+
+    // --- Issue 8: comparison must respect a negative denominator ---
+    #[test]
+    fn test_cmp_negative_denominator() {
+        let a = Fraction::new(1, -2); // -0.5
+        let b = Fraction::new(1, 2); //  0.5
+        assert!(a < b);
+        assert!(b > a);
+    }
+
+    // --- Eq must agree with Ord (value equality) ---
+    #[test]
+    fn test_eq_is_by_value() {
+        assert_eq!(Fraction::new(6, 12), Fraction::new(1, 2));
+        assert_eq!(Fraction::new(-1, -2), Fraction::new(1, 2));
+        assert_ne!(Fraction::new(1, 2), Fraction::new(1, 3));
+    }
+
+    // --- sqrt of a negative fraction must panic, not return garbage ---
+    #[test]
+    #[should_panic]
+    fn test_sqrt_negative_panics() {
+        let a = Fraction::new(-9, 16);
+        let _ = a.sqrt();
     }
 }
