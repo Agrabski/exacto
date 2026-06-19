@@ -12,18 +12,21 @@
 //                         top hood, front/rear lower lips, sized to
 //                         enclose BOTH optics frames
 //   beamsplitter_frame()  flat 30/70 plate frame at `angle` degrees
-//   mirror_frame()        curved collimating mirror frame at `mirror_tilt`
+//   mirror_frame()        curved partial-mirror ("combiner") frame, fixed
+//                         vertical (`combiner_tilt` = 90°)
 //   beamsplitter_mount()  / mirror_mount()  position each frame in world
 //                         space (side arms overlap the frame and merge
 //                         into the shroud side walls, same idiom as v4)
 //
-// Optics — true birdbath, two elements (replaces the v4 single curved
-//   combiner lens):
-//   display (face up) -> flat 30/70 beamsplitter (tilted `angle`,
-//   1st hit) -> curved collimating mirror (`mirror_tilt`) -> SAME
-//   beamsplitter panel (2nd hit, offset from the 1st) -> eye.  The fold
-//   geometry is fully derived from `angle`; see the "Birdbath optics"
-//   parameter block below for the closed-form formulas.
+// Optics — true birdbath, two elements, each hit EXACTLY ONCE (replaces
+//   both the v4 single curved combiner lens AND the earlier "same panel
+//   hit twice" birdbath topology):
+//   display (face up) -> flat 30/70 beamsplitter, fixed 45° relay (1st &
+//   only hit) -> curved partial-mirror combiner, fixed VERTICAL 90°
+//   (2nd & only hit, exact retro-reflection back the way it came) -> eye,
+//   looking back THROUGH the combiner's see-through window.  Both tilts
+//   are fixed constants now — no derivation, no sweep.  See the
+//   "Birdbath optics" parameter block below for the exact ray-trace.
 //
 // Joint: the top part's side walls drop below the seam as SKIRTS that lap
 //   over rebates on the bottom part's thick side edges.  4 horizontal M3
@@ -49,22 +52,29 @@
 //   Active  38.00 × 24.80 mm
 //   Holes   ø2.10, inset 2.25 mm (X) / 2.10 mm (Y) from PCB edge
 //
-// Birdbath optics (replaces the old single curved meniscus combiner):
-//   Beamsplitter: flat 30/70 reflective sheet, bs_w x bs_h, tilted `angle`.
-//   Mirror:       curved collimating mirror, mirror_w x mirror_h, single
-//                 cylindrical curvature mirror_R, tilted `mirror_tilt`.
+// Birdbath optics (replaces both the old single curved meniscus combiner
+// AND the earlier two-hit-same-panel birdbath):
+//   Beamsplitter: flat 30/70 reflective sheet, bs_w x bs_h, FIXED 45°
+//                 relay near the display — redirects the vertical beam to
+//                 exactly horizontal, nothing more.
+//   Combiner:     curved partial mirror, mirror_w x mirror_h, single
+//                 cylindrical curvature mirror_R, FIXED VERTICAL
+//                 (combiner_tilt = 90°) — the element the eye actually
+//                 looks through, both for the real target and the
+//                 reflected reticle.
 //   See the "Birdbath optics" parameter block for the full derivation.
 // ============================================================
 
-// ┌─────────────────────────────────────────────────────────┐
-// │  CHANGE THIS VALUE, RE-EXPORT STL, REPRINT              │
-// │  angle = beamsplitter tilt from horizontal (1st bounce) │
-// │  mirror_tilt is DERIVED from this — see below           │
-// │  45° = classic half-mirror reflex position               │
-// └─────────────────────────────────────────────────────────┘
+// ┌─────────────────────────────────────────────────────────────┐
+// │  angle = beamsplitter tilt from horizontal — FIXED at 45°.   │
+// │  combiner_tilt = combiner tilt — FIXED at 90° (vertical).    │
+// │  Both are pinned per explicit design decision (topology "c") │
+// │  — NOT reprint-tunable sweep parameters any more.  Changing  │
+// │  either invalidates the whole fold derivation below.         │
+// └─────────────────────────────────────────────────────────────┘
 use <picatinny.scad>
 
-angle = 60; // degrees  (recommended 35–65)
+angle = 45; // degrees — FIXED, do not sweep (was 35–65 in the rejected topology)
 
 // Which piece to render/export: "both" (assembled), "top", "bottom",
 // "bar" (removable Picatinny clamp jaw), "lid" (box top lid)
@@ -96,68 +106,76 @@ join_insert_d = 4.00; // M3 heat-set insert outer dia (bore in bottom)
 join_insert_depth = 5.00; // insert length / bore depth
 
 // ── Birdbath optics ─────────────────────────────────────────────
-// True two-element birdbath, replacing the old single curved combiner:
-//   display (face up) -> flat 30/70 beamsplitter, 1st hit (tilt `angle`)
-//   -> curved collimating mirror (tilt `mirror_tilt`)
-//   -> SAME beamsplitter panel, 2nd hit -> eye.
+// True two-element birdbath, EACH ELEMENT HIT EXACTLY ONCE (topology "c" —
+// replaces both the old single curved combiner AND the rejected "same
+// beamsplitter panel hit twice" birdbath):
+//   display (face up) -> flat 30/70 beamsplitter, fixed 45 deg, 1st & only
+//   hit (simple relay: redirects the vertical beam to exactly horizontal)
+//   -> curved partial-mirror combiner, fixed VERTICAL (90 deg), 2nd & only
+//   hit (exact retro-reflection, straight back the way it came)
+//   -> eye, looking back THROUGH the combiner's see-through window.
 //
-// Fold derivation (2D ray trace in the Y-Z plane; X is irrelevant, all
-// tilts are rotations about X exactly like `angle` always was):
-//   v_in = (0,1)                                  ray leaves display straight up
-//   n_bs = (sin angle, cos angle)                 beamsplitter normal
-//   v_out1 = (-sin 2*angle, -cos 2*angle)          after 1st bounce, unit vector
-//   mirror_tilt = 2*angle - 45                    EXACT closed form: makes the
-//                                                  final exit ray dead level for
-//                                                  any `angle` (verified by full
-//                                                  numeric ray trace, 35-65 deg)
-//   v_mirror_out = (-cos 2*angle, sin 2*angle)     after the mirror bounce, unit
-//   v_final = (-1, 0)                             after the 2nd beamsplitter
-//                                                  bounce — ALWAYS exactly level,
-//                                                  for any `angle` — this is what
-//                                                  keeps the reticle parallel to
-//                                                  the straight-through view of
-//                                                  the target (proper collimated
-//                                                  overlay)
+// Fold derivation (2D ray trace in the Y-Z plane; X is irrelevant, both
+// tilts are fixed rotations about X exactly like `angle` always was):
+//   v_in = (0,1)                       ray leaves display straight up
+//   45 deg mirror swaps (a,b) -> (b,a):
+//   v_out1 = (1,0)                     EXACTLY horizontal after the
+//                                       beamsplitter — no residual tilt,
+//                                       because angle is fixed at 45
+//   travels at constant Z to the vertical combiner, normal n = (-1,0):
+//   v_out2 = v_out1 - 2*(v_out1.n)*n
+//          = (-1,0)                    EXACT reversal, same Z — the
+//                                       return ray re-crosses the
+//                                       beamsplitter's own position
+//                                       (mostly transmissive) heading
+//                                       dead level to the eye, by
+//                                       construction, for any gap1/
+//                                       horiz_throw (the tilts alone
+//                                       fix the direction; the spacings
+//                                       only set WHERE, not which way)
 //
-// gap1/mirror_L1 are design constants (display-to-beamsplitter and
-// beamsplitter-to-mirror spacing along the folded axis); everything else
-// below is derived from them + `angle`, same pattern as the old
-// glass_cz/glass_cy/frame_dy block.
+// gap1/horiz_throw are design constants (display-to-beamsplitter,
+// vertical, and beamsplitter-to-combiner, horizontal); everything else
+// below is derived from them, same pattern as the old glass_cz/glass_cy/
+// frame_dy block.
 //
-// mirror_L1 must be large enough that the beamsplitter frame and mirror
-// frame (each a ~30-32 mm tall block) don't physically interpenetrate —
-// their world-space centres are only mirror_L1 mm apart (P2 = P1 +
-// mirror_L1 * v_out1, and the beamsplitter sits at the P1/P3 midpoint),
-// so a short mirror_L1 packs two ~30 mm frames closer together than their
-// own half-heights allow.  Verified numerically (2D SAT polygon check,
-// frame envelope boxes, swept across angle = 35-65 deg): mirror_L1 = 13
-// (the original guess) collides at every angle in range; mirror_L1 = 34
-// keeps a >= 3 mm separation margin at the worst-case angle (65 deg).
-gap1 = 13.00; // display centre -> beamsplitter centre, along the fold axis
-mirror_L1 = 34.00; // beamsplitter centre -> mirror vertex, along the fold axis
-mirror_f = gap1 + mirror_L1; // unfolded optical path length
-mirror_R = 2 * mirror_f; // paraxial radius of curvature (single-axis/cylindrical)
-mirror_tilt = 2 * angle - 45; // exact closed-form fold-bisector tilt
-mirror_L2 = mirror_L1 / tan(angle); // mirror vertex -> 2nd beamsplitter hit, exact
+// gap1 grew from the old topology's 13 mm to 30 mm: at the fixed 45 deg
+// beamsplitter tilt, the frame's own half-diagonal projects 14.85 mm in
+// both Y and Z ((bs_frame_y/2 + bs_frame_z/2... no: (3.5+17.5)*cos(45) =
+// 14.85, i.e. half bs_frame_y + half bs_frame_z, projected).  The
+// combiner, now UNTILTED (vertical, axis-aligned bounding box, no
+// diagonal projection), has half-height mirror_frame_z/2 = 18.5 mm
+// (unaffected by mirror_R) — THIS is the real binding constraint on
+// gap1: need (body_height+gap1) - 18.5 >= box_wall_top(27.5) + margin,
+// i.e. gap1 >= 26 + margin.  gap1 = 30 gives combiner's lowest Z = 31.5,
+// a 4.0 mm margin over box_wall_top — verified numerically.
+gap1 = 30.00; // display centre -> beamsplitter centre, vertical
+horiz_throw = 30.00; // beamsplitter centre -> combiner centre, horizontal (+Y)
+mirror_f = gap1 + horiz_throw; // unfolded optical path length (60.0)
+mirror_R = 2 * mirror_f; // paraxial radius of curvature (single-axis/cylindrical) (120.0)
+combiner_tilt = 90; // degrees — FIXED, vertical (replaces the old derived mirror_tilt)
 
 // Beamsplitter (flat 30/70 sheet) — plain rectangle, no arc caps.
 bs_w = 32.00; // panel width across X
-bs_h = 30.00; // panel height along the tilt direction (must clear both hit points)
+bs_h = 30.00; // panel height along the tilt direction (must clear the hit point)
 bs_t = 2.00; // sheet thickness
 bs_lip = 2.00; // retaining lip width around the see-through window
 
-// Mirror (curved collimating reflector) — single-axis cylindrical curvature
-// mirror_R, spanning mirror_w x mirror_h.  Sagitta over mirror_h is ~2.5 mm
-// at the values above — same order of magnitude as the old lens's own
-// 4.97 mm sagitta, so the existing arc-cap Boolean technique transfers
-// directly (cylinder ∩ bounding box).
-mirror_w = 32.00; // mirror width across X
-mirror_h = 32.00; // mirror height along the tilt direction
+// Combiner (curved partial-mirror reflector) — single-axis cylindrical
+// curvature mirror_R, spanning mirror_w x mirror_h.  Sagitta over
+// mirror_h is ~1.1 mm at the values above (mirror_R grew to 120 in this
+// topology, so the curve is shallower than the old design's ~2.5 mm) —
+// the existing arc-cap Boolean technique still transfers directly
+// (cylinder ∩ bounding box).  Internal names keep the "mirror_*" prefix
+// for continuity even though the user-facing optical role is now a
+// PARTIAL ("combiner") mirror — see mirror_frame()'s header comment.
+mirror_w = 32.00; // combiner width across X
+mirror_h = 32.00; // combiner height along the tilt direction
 mirror_t = 4.00; // backing thickness behind the reflective face (polished insert pocket)
-mirror_lip = 2.00; // retaining lip width around the reflective-insert pocket
+mirror_lip = 2.00; // retaining lip width around the reflective-insert / see-through window
 
 // Reference dimensions for clearance checks only — NOT cut/printed geometry.
-eye_relief = 50.00; // eye -> 2nd beamsplitter hit point, along the level exit ray
+eye_relief = 50.00; // eye -> combiner hit point, along the level exit ray
 exit_pupil = 8.00; // nominal exit pupil diameter, for sightline-cone checks
 
 // ── Structure ────────────────────────────────────────────────
@@ -203,6 +221,14 @@ engrave_font = "Liberation Sans:style=Bold";
 
 $fn = 48;
 
+// Forward box height — computed here (early) because the birdbath fold
+// geometry below (gated against box_wall_top, the real binding clearance
+// constraint in this topology) needs it before the rest of the forward
+// box's geometry (which depends on body_d/box_len/body_w, computed later
+// in "Derived") is otherwise ready.
+box_h = body_height + lip_h; // 30.00, reaches the lens opening
+box_wall_top = box_h - lid_t; // 27.50, top of the box walls
+
 // ── Derived ──────────────────────────────────────────────────
 body_w = disp_pcb_w + 2 * side_edge; // 58.20  (thick left/right edges)
 body_d = disp_pcb_h + 2 * wall; // 34.00
@@ -227,78 +253,85 @@ mirror_frame_z = mirror_h + 2 * wall; // 37.00  mirror frame height along tilt
 //   P1 = beamsplitter optical centroid (display's chief ray travels
 //        straight up from the display centre, so P1 sits directly above
 //        it by gap1).
-//   P2 = mirror vertex = P1 + mirror_L1 * v_out1.
-//   P3 = 2nd beamsplitter hit point = P2 + mirror_L2 * v_mirror_out.
-// P3 is guaranteed (by the closed-form math above) to land back on the
-// beamsplitter's own plane — i.e. (P3-P1) . n_bs == 0 — verified
-// numerically to ~1e-15 for angle in [35,65] before settling on these
-// constants; not re-asserted at OpenSCAD runtime since trig there is also
-// degrees-based and consistent with the derivation.
+//   P2 = combiner centroid = P1 + horiz_throw, SAME Z as P1 (the
+//        beamsplitter-to-combiner leg is exactly horizontal by
+//        construction — see the ray-trace above).
+// There is no P3 in this topology: each element is hit exactly once, so
+// the beamsplitter's centroid IS P1 (no more P1/P3-midpoint placement)
+// and the combiner's centroid IS P2 (no more "mirror vertex offset from
+// frame centre" — the combiner is untilted, so its own geometric centre
+// sits on the fold axis directly).
 disp_center_y = body_d / 2; // display active area is centred on body_d (==17.0)
-v_out1_y = -sin(2 * angle);
-v_out1_z = -cos(2 * angle);
-v_mirror_out_y = -cos(2 * angle);
-v_mirror_out_z = sin(2 * angle);
 
-p1_y = disp_center_y;
-p1_z = body_height + gap1;
-p2_y = p1_y + mirror_L1 * v_out1_y;
-p2_z = p1_z + mirror_L1 * v_out1_z;
-p3_y = p2_y + mirror_L2 * v_mirror_out_y;
-p3_z = p2_z + mirror_L2 * v_mirror_out_z;
+p1_y = disp_center_y; // 17.00
+p1_z = body_height + gap1; // 50.00
+p2_y = p1_y + horiz_throw; // 47.00
+p2_z = p1_z; // 50.00 — same height as the beamsplitter, exact (level leg)
 
-// Beamsplitter panel must physically span BOTH P1 and P3 (offset from each
-// other along the panel's own surface direction d_bs = (cos angle, -sin
-// angle)).  Centre the panel's geometric middle at the P1/P3 midpoint so
-// both hit points sit safely inside the aperture with margin for actual
-// beam width, not just the chief-ray point.
-bs_cy = (p1_y + p3_y) / 2;
-bs_cz = (p1_z + p3_z) / 2;
+// Beamsplitter frame centres directly on P1 — no offset, since it's hit
+// only once now.
+bs_cy = p1_y;
+bs_cz = p1_z;
 
-// Mechanical clearance check (same pattern as the old clearance_body):
-// vertical gap from the body top to the LOWEST point of the tilted
-// beamsplitter frame.  bs_clearance_margin must stay positive; if a future
-// change to gap1/mirror_L1/angle drives it negative, increase gap1.
-bs_lowest_z = bs_cz - (bs_frame_y / 2 * cos(angle) + bs_frame_z / 2 * sin(angle));
-bs_clearance_margin = bs_lowest_z - body_height; // ~2.6 mm at the default values
-
-// Mirror vertex world position (P2) — mirror frame centres here.
+// Combiner frame centres directly on P2.
 mirror_cy = p2_y;
 mirror_cz = p2_z;
 
+// Mechanical clearance checks (same pattern as the old bs_clearance_margin,
+// but against box_wall_top — the real binding constraint in this topology,
+// since both frames sit well above body_height and the forward box's top
+// is the thing they actually have to clear).  Both must stay positive; if
+// a future change to gap1/horiz_throw/angle drives either negative,
+// increase gap1.
+bs_lowest_z = bs_cz - (bs_frame_y / 2 * cos(angle) + bs_frame_z / 2 * sin(angle));
+bs_clearance_margin = bs_lowest_z - box_wall_top; // ~7.65 mm at the default values
+
+mirror_lowest_z = mirror_cz - mirror_frame_z / 2; // combiner untilted: axis-aligned box
+mirror_clearance_margin = mirror_lowest_z - box_wall_top; // ~4.0 mm at the default values
+
 // Eye reference point (clearance checks only, not a printed feature) —
-// directly behind P3 at the SAME height, since the exit ray is level.
-eye_y = p3_y - eye_relief;
-eye_z = p3_z;
+// directly behind P2 at the SAME height, since the return leg through the
+// combiner and back out past the beamsplitter is exactly level.
+eye_y = p2_y - eye_relief;
+eye_z = p2_z;
 
 // Shroud height — auto-sized to enclose BOTH frames at their respective
-// tilts (mirror tips higher than the beamsplitter, since it sits further
-// up the folded axis).
+// tilts (combiner tips higher than the beamsplitter at the default
+// values, since it's the taller untilted box riding higher up).
 bs_tip_z = bs_cz + (bs_frame_z / 2) * sin(angle) + (bs_frame_y / 2) * cos(angle);
-mirror_tip_z = mirror_cz + (mirror_frame_z / 2) * sin(mirror_tilt) + (mirror_frame_y / 2) * cos(mirror_tilt);
+mirror_tip_z = mirror_cz + mirror_frame_z / 2; // combiner untilted: axis-aligned box
 optics_tip_z = max(bs_tip_z, mirror_tip_z);
 shroud_h = optics_tip_z - body_height + shroud_wall + 4;
 
-// Rear extension — the mirror frame's rearmost (most -Y) corner can land
-// behind Y=0 (the bottom part's rear face), since `mirror_tilt` is steep
-// (close to vertical) and the frame's own depth swings a long way in Y
-// when rotated that far.  This is expected: the plan calls for the
-// mirror housing to occupy the rear-upper region that the open hood
-// leaves empty today.  Closed-form rearmost corner of the mirror frame
-// box (tilted mirror_tilt, centred at mirror_cy/mirror_cz):
-mirror_rear_y = mirror_cy - mirror_frame_y / 2 * sin(mirror_tilt) - mirror_frame_z / 2 * cos(mirror_tilt);
-// Extend the top part's rear wall/side walls backward (in the upper
-// region only — the bottom part's footprint is untouched) far enough to
-// fully enclose that corner, plus a small margin.
-rear_ext = max(0, -mirror_rear_y + 2.0);
+// Rear extension — closed-form rearmost (most -Y) corner of the
+// BEAMSPLITTER frame (tilted `angle`, centred at bs_cy/bs_cz).  In this
+// topology the beamsplitter is the element nearest the display/rear, so
+// it (not the combiner) is the one that could in principle swing behind
+// Y=0 at a steep enough tilt.  At the fixed 45 deg default this evaluates
+// to a positive rearmost Y (2.15 mm), so rear_ext is dormant (0) — kept as
+// a live formula, not deleted, since it's not provably unnecessary for
+// all future parameter choices.
+bs_rear_y = bs_cy - bs_frame_y / 2 * sin(angle) - bs_frame_z / 2 * cos(angle);
+rear_ext = max(0, -bs_rear_y + 2.0);
+
+// Front extension — the combiner, pushed forward by horiz_throw and now
+// untilted (full mirror_frame_y depth projects straight along +Y, no
+// foreshortening), can land its forward-most corner past the body's own
+// front face (body_d).  Closed-form forward-most corner of the combiner
+// frame box (untilted, centred at mirror_cy/mirror_cz):
+mirror_front_y = mirror_cy + mirror_frame_y / 2;
+// Extend the top part's side walls/hood FORWARD (in the upper region only
+// — gated above box_wall_top, since both optics frames sit well above it
+// everywhere in the extended region) far enough to fully enclose that
+// corner, plus a small margin.
+front_ext = max(0, mirror_front_y - body_d + 2.0);
 
 // Y positions of the 4 side joint screws (2 per side).
 side_screw_y = [body_d * 0.28, body_d * 0.72];
 
 // Forward box geometry.  Box spans Y = body_d .. box_y1, sitting in front
 // of the optics head; its top reaches the lens-opening bottom (lip top).
-box_h = body_height + lip_h; // 30.00, reaches the lens opening
-box_wall_top = box_h - lid_t; // 27.50, top of the box walls
+// (box_h/box_wall_top are computed earlier now — see above "Derived".)
 box_y0 = body_d; // box back (joins the optics head)
 box_y1 = body_d + box_len; // box front (muzzle end)
 // Lid screw-boss positions (the 4 inside box corners).  Pulled 2 mm toward
@@ -375,11 +408,15 @@ module screen_body() {
 // ── EOTech-style shroud ───────────────────────────────────────
 // Enclosed rectangular window frame: solid left/right side walls,
 // solid top hood bar, short front/rear lower lips.  Sized to enclose
-// BOTH the beamsplitter and mirror frames at their respective tilts.
-// The centre opening (front face, and the rear face BELOW the mirror
-// housing) is left open for viewing; the mirror housing itself (rear,
-// above rear_lip_h) is closed at the back — no rear viewing window is
-// needed there, since the mirror is internal/reflective, not see-through.
+// BOTH the beamsplitter and combiner frames at their respective tilts.
+// The centre opening (the combiner's own see-through window, and the
+// rear face BELOW rear_lip_h) is left open for viewing; rear_ext (above
+// rear_lip_h) and front_ext (above box_wall_top) extend the side walls/
+// hood, in their respective directions, far enough to fully enclose
+// whichever frame corner lands outside the body's own footprint —
+// rear_ext for the beamsplitter (rear/upper), front_ext for the combiner
+// (forward/upper).  At the default fixed angle/combiner_tilt, rear_ext
+// is dormant (0) and front_ext is the dominant extension.
 module eotech_shroud() {
   se = side_edge;
   sw = shroud_wall;
@@ -388,15 +425,21 @@ module eotech_shroud() {
   bd = body_d;
   sh = shroud_h;
   re = rear_ext; // how far the upper rear region extends behind Y=0
+  fe = front_ext; // how far the upper front region extends past body_d
+  bwt = box_wall_top; // gate height for the forward extension (27.5)
 
   // Left/right side walls (thick edges, full height).  Extended backward
   // by rear_ext ONLY above rear_lip_h, so the existing lower rear sight
-  // window (Y=0 face, below rear_lip_h) is untouched; the mirror housing
-  // sits in the upper region that the old open hood left empty.
+  // window (Y=0 face, below rear_lip_h) is untouched.  Also extended
+  // FORWARD by front_ext, gated above box_wall_top instead (both optics
+  // frames sit well above box_wall_top everywhere in the extended
+  // region, so there is no separate lower-front-lip carve-out needed
+  // the way there is at the rear).  One continuous run from Y = -re to
+  // Y = bd + fe, no seam wall needed at Y = bd.
   translate([0, -re, bh + rear_lip_h])
-    cube([se, bd + re, sh - rear_lip_h]);
+    cube([se, (bd + fe) - (-re), sh - rear_lip_h]);
   translate([bw - se, -re, bh + rear_lip_h])
-    cube([se, bd + re, sh - rear_lip_h]);
+    cube([se, (bd + fe) - (-re), sh - rear_lip_h]);
   // Lower portion of the side walls (Y >= 0, same as before) — keeps the
   // rear sight window open below rear_lip_h.
   translate([0, 0, bh])
@@ -411,13 +454,15 @@ module eotech_shroud() {
   translate([bw - skirt_t, 0, bh - lap_h])
     cube([skirt_t, bd, lap_h]);
 
-  // Top hood bar (full width), extended backward by rear_ext to roof over
-  // the mirror housing.
+  // Top hood bar (full width), extended backward by rear_ext AND forward
+  // by front_ext — one continuous run roofing both the beamsplitter
+  // (rear) and the combiner (forward).
   translate([0, -re, bh + sh - sw])
-    cube([bw, bd + re, sw]);
+    cube([bw, (bd + fe) - (-re), sw]);
 
-  // Mirror housing rear wall — closes off the back of the upper rear
-  // region (no viewing window needed; the mirror is internal/reflective).
+  // Beamsplitter housing rear wall — closes off the back of the upper
+  // rear region (no viewing window needed there; only the combiner's
+  // window, further forward, is meant to be seen through).
   translate([se, -re, bh + rear_lip_h])
     cube([bw - 2 * se, sw, sh - rear_lip_h - sw]);
 
@@ -425,9 +470,17 @@ module eotech_shroud() {
   translate([se, 0, bh])
     cube([bw - 2 * se, sw, rear_lip_h]);
 
-  // Front lower lip (Y=body_d face, between side walls)
+  // Front lower lip (Y=body_d face, between side walls) — untouched: its
+  // Z range (bh..bh+lip_h = 20..30) and Y range (~31..34) never overlaps
+  // the combiner's see-through window (Y ~41.8..52.2), so it stays a
+  // plain low sill, NOT a closing wall across the combiner's aperture.
   translate([se, bd - sw, bh])
     cube([bw - 2 * se, sw, lip_h]);
+
+  // NOTE: deliberately NO closing wall in front of the combiner (at
+  // Y = bd + fe) — the combiner's own see-through window is the
+  // requested "hole through the front."  Only the side walls/hood above
+  // wrap around and frame it; the front face stays open.
 }
 
 // ── Beamsplitter frame ───────────────────────────────────────
@@ -459,17 +512,31 @@ module beamsplitter_frame() {
   }
 }
 
-// ── Mirror frame ─────────────────────────────────────────────
+// ── Combiner frame (internal name kept as "mirror_*" for continuity) ──
 // Adapts the old lens_frame()'s arc-cap Boolean idiom (cylinder ∩/−
-// bounding box), but the curve is applied to the mirror's REFLECTIVE
-// FACE (radius mirror_R, single-axis/cylindrical) instead of to rounded
-// end caps.  The curve runs along local X (mirror_w); the reflective
+// bounding box), but the curve is applied to the combiner's PARTIALLY
+// REFLECTIVE FACE (radius mirror_R, single-axis/cylindrical) instead of
+// to rounded end caps.  The curve runs along local X (mirror_w); the
 // pocket is flat (un-curved) along local Z (mirror_h) — i.e. the
-// reflective face is a cylindrical arc, not a sphere.  The pocket holds
-// a polished/reflective insert; this is NOT a see-through window like
-// the beamsplitter (the mirror doesn't need to be seen through), so
-// there is no open-through-both-faces cut — the pocket opens only at
-// the +Y (front) face, same entry convention as the beamsplitter.
+// reflective face is a cylindrical arc, not a sphere.
+//
+// This element is a PARTIAL mirror — unlike the old fully-opaque "mirror"
+// framing in the rejected topology, the eye looks straight THROUGH it
+// (both to see the real target and to see the reflected reticle), so it
+// MUST be see-through, the same way the beamsplitter is.  Two separate
+// cuts live in the same difference(): the curved insert pocket (below,
+// unchanged from the previous topology) for the polished/partially-
+// reflective coating/insert, open only at the +Y face; PLUS a straight
+// through-window spanning the full local-Y depth, mirroring
+// beamsplitter_frame()'s see-through window pattern exactly (same
+// `wall`/`_lip` inset idiom, just with mirror_w/mirror_lip/
+// mirror_frame_y/mirror_frame_z in place of the beamsplitter's
+// equivalents).  Since the through-window spans the FULL local-Y depth,
+// it naturally unions with (extends through) the curved pocket's own
+// empty space — no special interaction logic needed.  Result: a
+// mirror_lip-wide retaining rim around a window open from both faces,
+// with the curved reflective insert sitting in its own pocket nearer
+// the +Y face.
 //
 // Pocket geometry (standard concave-mirror parameterisation, vertex at
 // local X = mirror_w/2):
@@ -478,8 +545,12 @@ module beamsplitter_frame() {
 // vertex) and the EDGES are shallower by `mirror_sagitta`.  This profile
 // is the lower boundary of a cylinder (axis along X) of radius mirror_R
 // centred at (X = mirror_w/2, Y = Y_vertex + mirror_R); cutting
-// (front-face box) MINUS (that cylinder solid) leaves exactly the
-// curved pocket, open at +Y, with the deepest point at Y_vertex.
+// (front-face box) INTERSECTED WITH (that cylinder solid) leaves exactly
+// the curved pocket, open at +Y, with the deepest point at Y_vertex —
+// NOT a nested difference with an oversized "everything outside the
+// cylinder" box; that idiom was tried and discarded (it failed to cut
+// anything because the box ended up disjoint from the cylinder's
+// relevant range).
 module mirror_frame() {
   pkt = mirror_t + clearance; // insert pocket depth at the EDGES (shallowest)
   y_vertex = mirror_frame_y - pkt - mirror_sagitta; // deepest point of the pocket (centre)
@@ -503,15 +574,47 @@ module mirror_frame() {
         rotate([0, 90, 0])
           cylinder(r=mirror_R, h=mirror_w + 2, center=true, $fn=120);
     }
+
+    // ── see-through window — open through BOTH faces, same idiom as
+    // beamsplitter_frame()'s window — so the eye can look straight
+    // through the partial-mirror combiner; a mirror_lip-wide rim retains
+    // the curved insert/coating.  Spans the full local-Y depth, so it
+    // naturally unions with the curved pocket's empty space above.
+    translate([wall + mirror_lip, -0.1, wall + mirror_lip])
+      cube([mirror_w - 2 * (wall + mirror_lip), mirror_frame_y + 0.2, mirror_frame_z - 2 * (wall + mirror_lip)]);
   }
 }
 
-// ── Beamsplitter / mirror mounts at their derived positions ──
+// ── Beamsplitter / combiner mounts at their derived positions ──
 // Each frame is centred in X; rectangular arms run from each shroud side
 // wall and overlap arm_overlap mm INTO the frame.  Reuses the old
 // glass_frame_mount()'s side-arm-merge-into-shroud-wall pattern, now
-// parametrized per element and placed at the P1/P2, angle/mirror_tilt
+// parametrized per element and placed at the P1/P2, angle/combiner_tilt
 // positions derived above.
+//
+// beamsplitter_mount() uses rotate([90-angle,0,0]) — at angle=45 this is
+// rotate([45,0,0]), tilting the frame's local +Y face (its pocket
+// opening, per beamsplitter_frame()'s convention) up and back toward the
+// display, exactly as before.
+//
+// mirror_mount() (the combiner) CANNOT reuse that same form: plugging
+// combiner_tilt=90 into rotate([90-combiner_tilt,0,0]) gives
+// rotate([0,0,0]) — no rotation at all — which leaves the frame's local
+// +Y face (its pocket/window opening) pointing in world +Y (forward,
+// AWAY from the display) — wrong; the combiner must face BACKWARD
+// (-Y), confronting the oncoming horizontal beam from the beamsplitter.
+// Derivation: local +Y axis (y=1,z=0) maps, under rotate([rx,0,0]), to
+// world (cos(rx), sin(rx)).  Need this to equal (-1,0) (world -Y) =>
+// rx = 180.  rx = 270 - combiner_tilt evaluates to exactly 180 at
+// combiner_tilt = 90 — this is the correct general form (verified
+// independently: at combiner_tilt=90 the local +Y world-space direction
+// dotted against the true beamsplitter-ward unit vector from the
+// combiner's own position gives +1.0, i.e. exact alignment, not just
+// "roughly facing the right way").  Because combiner_tilt=90 makes this
+// a full 180 deg point-reflection about the X-axis, and the frame's
+// local cross-section is symmetric in Y and Z (the curved pocket only
+// varies along local X), the flip is geometrically clean — it doesn't
+// distort the pocket or the side-arm overlap mechanics.
 module beamsplitter_mount() {
   arm_len = body_w / 2 - bs_w / 2 + arm_overlap;
   translate([body_w / 2, bs_cy, bs_cz])
@@ -532,7 +635,7 @@ module beamsplitter_mount() {
 module mirror_mount() {
   arm_len = body_w / 2 - mirror_w / 2 + arm_overlap;
   translate([body_w / 2, mirror_cy, mirror_cz])
-    rotate([90 - mirror_tilt, 0, 0]) {
+    rotate([270 - combiner_tilt, 0, 0]) {
       translate([-mirror_w / 2, -mirror_frame_y / 2, -mirror_frame_z / 2])
         mirror_frame();
 
