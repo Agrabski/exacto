@@ -54,6 +54,80 @@ Both are retained by friction fit in their pockets **plus adhesive** (no set
 screws — the merged side arms bury any screw access). A ~1.5 mm rim laps each
 optic at the rear; the eye looks straight through both windows.
 
+### Recommended / DIY materials
+
+A true cylindrical R≈120 mm partial-mirror combiner is not a common catalog
+part, so the optics are the part that drives sourcing. Cheap, hobby-tool
+options below; all are knife/scorer/heat-gun workable with no custom optics
+order (total optics cost ~$15–30).
+
+**Beamsplitter (flat — the easy one):**
+- **Best match:** 70/30 (or 30/70) **teleprompter glass** — dielectric
+  partial-mirror film on glass. Score and snap to 32 × 30 mm. ~2 mm thick,
+  which matches the pocket. ~$10–20.
+- **Cheaper alt:** **two-way ("one-way") mirror acrylic** — saw/laser
+  cuttable, won't shatter. Reflectivity is nearer 50/50 and less spectrally
+  even, but fine for a prototype. ~$5–15.
+- If using thin film-on-PET, laminate it to a 2.0 mm clear carrier so it
+  seats flush under the retaining lip. Avoid fragile pellicle beamsplitters
+  for a DIY build.
+- **Orientation (ghost suppression):** teleprompter glass is partially
+  reflective on one face and AR-coated on the other. Mount it with the
+  **AR-coated face outward** (toward the real world) so the second surface
+  doesn't throw a ghost/double image. This is the standard DIY-AR (Project
+  North Star) practice.
+
+**Combiner (curved partial mirror — the hard one):**
+- **Recommended DIY:** thermoform **two-way mirror acrylic** over a
+  3D-printed **R = 120 mm convex cylindrical (or spherical) form**. Heat to
+  ~120–160 °C (heat gun / oven) and slump. Sag over the 32 mm aperture is
+  only ~1.07 mm, so the curve is gentle and forgiving. Reflective face goes
+  **concave / rear** (−Y) per Step 2 below.
+- **Acceptable substitute:** a **spherical** R≈120 mm partial mirror — over a
+  32 mm window the difference from cylindrical is minor and spherical forms
+  are easier to make/buy.
+- **Exact but not cheap:** the serious DIY-AR route. Either a
+  cylindrical/spherical concave mirror R = 120 mm (f ≈ 60 mm) with a partial
+  coating from an optics supplier (Edmund/Thorlabs), or a **CNC / diamond-
+  turned solid PMMA reflector** (the method Leap Motion's Project North Star
+  uses, and what vendors like CombineReality / Smart Prototyping sell). Tens
+  of dollars plus likely a custom coating, but the surface accuracy is what
+  makes the image distortion-free.
+  - **How to obtain one (made to spec):** there is no off-the-shelf optic
+    for this surface — ready-made AR combiners (e.g. Project North Star
+    reflectors) are large freeform/ellipsoidal parts and do **not** match the
+    32 × 32 mm, R = 120 mm cylinder, so don't try to adapt one. Instead,
+    export the combiner surface from
+    [`cad/sight_housing.scad`](cad/sight_housing.scad) as a STEP/STL and send
+    it to an online CNC service (PCBWay, Xometry, Protolabs, or a local shop)
+    requesting **optical-grade PMMA, machined then vapor-polished** for the
+    32 × 32 mm, R = 120 mm concave face. Finish with a partial-mirror
+    treatment: a sputter/optics house can apply a real beamsplitter coating,
+    or for a budget build apply two-way mirror film / a light spray-on
+    "mirror tint" to the convex rear face. Diamond-turning gives the best
+    surface but needs a specialist shop (e.g. a custom-optics fabricator) and
+    raises cost into the hundreds.
+- **Salvage:** curved combiners from dead red-dot sights or cheap car-HUD
+  reflectors are already partial mirrors, but their radius won't be 120 mm —
+  only viable if you re-derive the optical block.
+
+> **Important:** the model's ~50 mm eye relief and reticle collimation assume
+> the **120 mm combiner radius** and the **concave-rear** orientation.
+> Substituting a different curve (e.g. a salvaged combiner) invalidates the
+> fold; re-check the optical block in
+> [`cad/sight_housing.scad`](cad/sight_housing.scad) first.
+>
+> Combiner reflectivity is a trade-off: too high dims the see-through target,
+> too low washes out the reticle. Two-way acrylic (~50/50) is a fine starting
+> point — tune by swapping film/coating grades.
+>
+> **Ghosting:** a thermoformed two-way-acrylic combiner has no AR coating on
+> either face, so expect some secondary (ghost) reflection — the known cost
+> of the cheap route. DIY-AR builds (Project North Star) AR-coat the outer
+> (convex) combiner face to kill it; a CNC/bought reflector can come coated.
+> The small 32 mm aperture and gentle R = 120 mm curve keep distortion low,
+> which is the one thing working in the thermoform route's favor.
+
 ---
 
 ## 3. Electronics

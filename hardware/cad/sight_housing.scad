@@ -1,10 +1,14 @@
 // ============================================================
 // Exacto Reflex Sight Housing — v5 (EOTech-style, two-part, birdbath optics)
 //
-// Two screw-joined parts, split at the seam z = body_height (20 mm):
-//   bottom_part()  display holder = screen_body() + joint inserts
-//   top_part()     optics holder  = eotech_shroud() + beamsplitter_mount()
-//                                   + combiner_mount()
+// Two screw-joined parts, split at the seam z = body_height (20 mm), PLUS a
+// detachable front-lens cartridge:
+//   bottom_part()        display holder = screen_body() + joint inserts
+//   top_part()           optics holder  = eotech_shroud() + beamsplitter_mount()
+//                                         + combiner_index_stops()
+//   combiner_cartridge() removable front lens = combiner_frame() + side ears,
+//                        bolted into the top part's front channel by 4 side M3
+//                        screws and depth-located by 3 rear indexing stops.
 //
 // Sub-modules:
 //   screen_body()         box holding OLED + electronics, display up
@@ -42,8 +46,10 @@
 // Mount: a female MIL-STD-1913 Picatinny clamp (picatinny.scad) is fused
 //   to the underside and runs the WHOLE length of the sight.
 //
-// Optics retention: friction fit in the frame pockets + adhesive.
-// (No set screws — the merged side arms would bury them.)
+// Optics retention: friction fit in the frame pockets + adhesive.  The
+// beamsplitter frame is fused into the top part; the COMBINER frame is a
+// detachable cartridge (combiner_cartridge()) bolted in from the sides, so the
+// front lens can be serviced/swapped without reprinting the optics head.
 //
 // Set `render_part` below to choose what to render/export.
 //
@@ -80,7 +86,8 @@ use <screw_mounts.scad>
 beamsplitter_tilt = 45; // beamsplitter tilt from horizontal, deg — FIXED, do not sweep (was 35–65 in the rejected topology)
 
 // Which piece to render/export: "both" (assembled), "top", "bottom",
-// "bar" (removable Picatinny clamp jaw), "lid" (box top lid)
+// "combiner" (detachable front-lens cartridge), "bar" (removable Picatinny
+// clamp jaw), "lid" (box top lid)
 render_part = "both";
 
 // Forward electronics box (extends from the optics head toward the muzzle).
@@ -195,6 +202,16 @@ body_height = 20.00; // seam height; must fit Arduino Nano + wiring
 front_lip_height = 10.00; // height of the FRONT lower lip on the shroud
 rear_lip_height = 4.00; // height of the REAR lip (lowered for a clear sight picture)
 arm_overlap = 3.00; // how far the side arms reach INTO the optic frame
+
+// Detachable combiner cartridge (front lens is now a separate screw-in part —
+// see combiner_cartridge()).  4 M3 screws enter horizontally through the side
+// walls into inserts in the cartridge's ears; 3 rear indexing stops (2 side
+// walls + hood) depth-locate it on insertion.
+combiner_screw_dz = 10.00; // half the vertical spacing of the 2-per-side screws (Z = combiner_center_z ± this)
+combiner_ear_overlap = arm_overlap; // how far each ear laps INTO the frame end (reuse 3 mm)
+combiner_fit = clearance; // sliding clearance between cartridge and the housing channel/hood (0.30)
+combiner_index_size = 4.00; // cross-section of each rear indexing stop
+combiner_index_depth = 3.50; // how far each stop sits BEHIND the cartridge rear plane
 
 // Side-wall lap joint
 lap_height = 14.00; // vertical overlap: skirt reaches this far below the seam
@@ -323,7 +340,10 @@ eye_point_z = combiner_center_z;
 beamsplitter_top_z = beamsplitter_center_z + (beamsplitter_frame_height / 2) * sin(beamsplitter_tilt) + (beamsplitter_frame_depth / 2) * cos(beamsplitter_tilt);
 combiner_top_z = combiner_center_z + combiner_frame_height / 2; // combiner untilted: axis-aligned box
 optics_top_z = max(beamsplitter_top_z, combiner_top_z);
-shroud_height = optics_top_z - body_height + shroud_wall + 4;
+// Flush top: hood underside (body_height + shroud_height - shroud_wall) lands
+// exactly on optics_top_z, so the optics mounts seat against the hood underside
+// and the hood is the shroud_wall roof above them (no extra clearance margin).
+shroud_height = optics_top_z - body_height + shroud_wall;
 
 // Rear extension — closed-form rearmost (most -Y) corner of the
 // BEAMSPLITTER frame (tilted, centred at beamsplitter_center_y/_z).  In this
@@ -343,6 +363,9 @@ rear_extension = max(0, -beamsplitter_rear_y + 2.0);
 // forward-most corner of the combiner frame box (untilted, centred at
 // combiner_center_y/_z):
 combiner_front_y = combiner_center_y + combiner_frame_depth / 2;
+// Rear / seating plane of the combiner cartridge (its rear-most face, -Y).  The
+// 3 indexing stops sit just behind this and the cartridge butts against them.
+combiner_rear_y = combiner_center_y - combiner_frame_depth / 2; // ≈43.3
 // Extend the top part's side walls/hood FORWARD (in the upper region only —
 // gated above box_wall_top_z, since both optics frames sit well above it
 // everywhere in the extended region) far enough to fully enclose that
@@ -670,6 +693,78 @@ module combiner_mount() {
     }
 }
 
+// ── Detachable combiner cartridge ────────────────────────────
+// The front lens is a SEPARATE printed part: combiner_frame() (unchanged
+// optic geometry) placed by the SAME transform combiner_mount() used, plus
+// two side ears that reach from the frame ends out toward the side-wall inner
+// faces.  Each ear hosts 2 M3 brass inserts (bored along ±X from its outer
+// face); 4 screws enter horizontally through the housing side walls
+// (combiner_screw_clearance()) and thread into them.  The cartridge is
+// depth-located on insertion by 3 rear stops (combiner_index_stops()).  Built
+// in WORLD coords so the horizontal inserts stay along world X (the 180° flip
+// at combiner_tilt=90 preserves X, so no rotation bookkeeping is needed).
+module combiner_cartridge() {
+  frame_left_x = body_width / 2 - combiner_frame_width / 2; // 11.1
+  frame_right_x = body_width / 2 + combiner_frame_width / 2; // 47.1
+  difference() {
+    union() {
+      // optic frame, placed EXACTLY as combiner_mount() places it
+      translate([body_width / 2, combiner_center_y, combiner_center_z])
+        rotate([270 - combiner_tilt, 0, 0])
+          translate([-combiner_frame_width / 2, -combiner_frame_depth / 2, -combiner_frame_height / 2])
+            combiner_frame();
+
+      // Left ear: from the side-wall inner face (+combiner_fit slide gap) in to
+      // combiner_ear_overlap past the frame's left edge.  Full cartridge depth
+      // (combiner_rear_y..combiner_front_y) and full frame height.
+      translate([side_edge + combiner_fit, combiner_rear_y, combiner_center_z - combiner_frame_height / 2])
+        cube([(frame_left_x + combiner_ear_overlap) - (side_edge + combiner_fit), combiner_frame_depth, combiner_frame_height]);
+      // Right ear (mirror)
+      translate([frame_right_x - combiner_ear_overlap, combiner_rear_y, combiner_center_z - combiner_frame_height / 2])
+        cube([(body_width - side_edge - combiner_fit) - (frame_right_x - combiner_ear_overlap), combiner_frame_depth, combiner_frame_height]);
+    }
+    // 4 M3 inserts, bored along ±X from the ear outer faces (joint_inserts idiom)
+    for (z = [combiner_center_z - combiner_screw_dz, combiner_center_z + combiner_screw_dz]) {
+      translate([side_edge + combiner_fit, combiner_center_y, z]) // left ear, bore +X
+        rotate([0, -90, 0]) insert_hole("M3");
+      translate([body_width - side_edge - combiner_fit, combiner_center_y, z]) // right ear, bore -X
+        rotate([0, 90, 0]) insert_hole("M3");
+    }
+  }
+}
+
+// M3 screw clearance holes (with countersink) through the housing side walls,
+// heads flush on the OUTER faces, threading into the cartridge ear inserts.
+// Mirrors joint_clearance()'s ±X idiom, at the combiner screw Y/Z.
+module combiner_screw_clearance() {
+  for (z = [combiner_center_z - combiner_screw_dz, combiner_center_z + combiner_screw_dz]) {
+    translate([0, combiner_center_y, z]) // left wall, screw enters from -X
+      rotate([0, -90, 0]) screw_hole("M3", side_edge, m3_clearance_fit);
+    translate([body_width, combiner_center_y, z]) // right wall, screw enters from +X
+      rotate([0, 90, 0]) screw_hole("M3", side_edge, m3_clearance_fit);
+  }
+}
+
+// 3 rear indexing stops fused to the housing — front faces at combiner_rear_y,
+// bodies extending combiner_index_depth BEHIND it (-Y), so the cartridge butts
+// against them on insertion and is depth-located.  One on each side-wall inner
+// face (contacting the ears) and one hanging from the hood underside
+// (contacting the frame's top rear rim).  All sit at Y < combiner_rear_y, so
+// they never collide with the cartridge, which stops at combiner_rear_y.
+module combiner_index_stops() {
+  s = combiner_index_size;
+  y0 = combiner_rear_y - combiner_index_depth;
+  // left side-wall stop (protrudes +X into the cavity)
+  translate([side_edge, y0, combiner_center_z - s / 2])
+    cube([s, combiner_index_depth, s]);
+  // right side-wall stop (protrudes -X)
+  translate([body_width - side_edge - s, y0, combiner_center_z - s / 2])
+    cube([s, combiner_index_depth, s]);
+  // top hood stop (hangs down from the hood underside = optics_top_z)
+  translate([body_width / 2 - s / 2, y0, optics_top_z - s])
+    cube([s, combiner_index_depth, s]);
+}
+
 // ── Side lap joint ───────────────────────────────────────────
 // The top-part skirts lap over rebates in the bottom-part side edges;
 // 4 horizontal M3 screws (2 per side, low — under the PCB) pin and clamp
@@ -811,9 +906,10 @@ module top_part() {
     union() {
       eotech_shroud();
       beamsplitter_mount();
-      combiner_mount();
+      combiner_index_stops(); // combiner is now a detachable cartridge (combiner_cartridge())
     }
     joint_clearance();
+    combiner_screw_clearance();
   }
 }
 
@@ -822,12 +918,14 @@ if (render_part == "bottom")
   bottom_part();
 else if (render_part == "top")
   top_part();
-else if (render_part == "bar") // the removable clamp bar, on its own
+else if (render_part == "combiner") // the detachable front-lens cartridge, on its own
+combiner_cartridge(); else if (render_part == "bar") // the removable clamp bar, on its own
 clamp_bar(); else if (render_part == "lid") // the box top lid, on its own
 box_lid(); else {
   // "both" — full assembled preview
   bottom_part();
   top_part();
+  combiner_cartridge();
   clamp_bar();
   box_lid();
 }
