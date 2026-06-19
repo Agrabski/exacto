@@ -26,13 +26,14 @@ DEFAULT_OUT = Path(__file__).parent / 'sight_render.png'
 #   rz = azimuth   — 0=front, 90=right, 180=rear, 270=left
 #   dist = mm from look-at point to camera
 VIEWS = [
-    ('Rear-right isometric',  50,  30, 230),
-    ('Front aperture (45°)',   20, 180, 210),
-    ('Front-left isometric',  40, 215, 230),
+    ('Rear-right isometric',  50,  30, 340),
+    ('Front aperture (45°)',   20, 180, 320),
+    ('Front-left isometric',  40, 215, 340),
 ]
 
-# Approximate model centre (mm) — body 47×34, total height ~61
-CX, CY, CZ = 24, 17, 27
+# Approximate model centre (mm) — body 58×34 + birdbath shroud (rear_ext
+# extends the optics head backward) + 80 mm forward box, total height ~76
+CX, CY, CZ = 29, 30, 38
 
 IMGW, IMGH   = 900, 700
 COLORSCHEME  = 'DeepOcean'

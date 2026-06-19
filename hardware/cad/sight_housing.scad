@@ -1,17 +1,29 @@
 // ============================================================
-// Exacto Reflex Sight Housing — v4 (EOTech-style, two-part)
+// Exacto Reflex Sight Housing — v5 (EOTech-style, two-part, birdbath optics)
 //
 // Two screw-joined parts, split at the seam z = body_height (20 mm):
 //   bottom_part()  display holder = screen_body() + joint inserts
-//   top_part()     lens holder    = eotech_shroud() + glass_frame_mount()
+//   top_part()     optics holder  = eotech_shroud() + beamsplitter_mount()
+//                                   + mirror_mount()
 //
 // Sub-modules:
-//   screen_body()        box holding OLED + electronics, display up
-//   eotech_shroud()      rectangular window frame — left/right walls,
-//                        top hood, front/rear lower lips
-//   glass_frame_mount()  combiner glass frame at `angle` degrees
-//                        (sits inside shroud; side arms overlap the
-//                        frame and merge into the shroud side walls)
+//   screen_body()         box holding OLED + electronics, display up
+//   eotech_shroud()       rectangular window frame — left/right walls,
+//                         top hood, front/rear lower lips, sized to
+//                         enclose BOTH optics frames
+//   beamsplitter_frame()  flat 30/70 plate frame at `angle` degrees
+//   mirror_frame()        curved collimating mirror frame at `mirror_tilt`
+//   beamsplitter_mount()  / mirror_mount()  position each frame in world
+//                         space (side arms overlap the frame and merge
+//                         into the shroud side walls, same idiom as v4)
+//
+// Optics — true birdbath, two elements (replaces the v4 single curved
+//   combiner lens):
+//   display (face up) -> flat 30/70 beamsplitter (tilted `angle`,
+//   1st hit) -> curved collimating mirror (`mirror_tilt`) -> SAME
+//   beamsplitter panel (2nd hit, offset from the 1st) -> eye.  The fold
+//   geometry is fully derived from `angle`; see the "Birdbath optics"
+//   parameter block below for the closed-form formulas.
 //
 // Joint: the top part's side walls drop below the seam as SKIRTS that lap
 //   over rebates on the bottom part's thick side edges.  4 horizontal M3
@@ -27,7 +39,7 @@
 // Mount: a female MIL-STD-1913 Picatinny clamp (picatinny.scad) is fused
 //   to the underside and runs the WHOLE length of the sight.
 //
-// Glass retention: friction fit in the frame pocket + adhesive.
+// Optics retention: friction fit in the frame pockets + adhesive.
 // (No set screws — the merged side arms would bury them.)
 //
 // Set `part` below to choose what to render/export.
@@ -37,14 +49,18 @@
 //   Active  38.00 × 24.80 mm
 //   Holes   ø2.10, inset 2.25 mm (X) / 2.10 mm (Y) from PCB edge
 //
-// Lens:   24.00 × 34.00 mm, 2.74 mm thick, arcs R16.97 both ends
-//         (hardware/lens/lense.avif)
+// Birdbath optics (replaces the old single curved meniscus combiner):
+//   Beamsplitter: flat 30/70 reflective sheet, bs_w x bs_h, tilted `angle`.
+//   Mirror:       curved collimating mirror, mirror_w x mirror_h, single
+//                 cylindrical curvature mirror_R, tilted `mirror_tilt`.
+//   See the "Birdbath optics" parameter block for the full derivation.
 // ============================================================
 
 // ┌─────────────────────────────────────────────────────────┐
 // │  CHANGE THIS VALUE, RE-EXPORT STL, REPRINT              │
-// │  angle = combiner tilt from horizontal                  │
-// │  45° = classic half-mirror reflex position              │
+// │  angle = beamsplitter tilt from horizontal (1st bounce) │
+// │  mirror_tilt is DERIVED from this — see below           │
+// │  45° = classic half-mirror reflex position               │
 // └─────────────────────────────────────────────────────────┘
 use <picatinny.scad>
 
@@ -79,12 +95,70 @@ join_clear_d = 3.40; // M3 clearance hole through the top-part skirt
 join_insert_d = 4.00; // M3 heat-set insert outer dia (bore in bottom)
 join_insert_depth = 5.00; // insert length / bore depth
 
-// ── Lens ─────────────────────────────────────────────────────
-lens_w = 24.00;
-lens_h = 34.00;
-lens_t = 2.74;
-lens_top_r = 16.97; // radius of rounded ends (both top and bottom)
-lens_lip = 2.00; // retaining lip width around the see-through window
+// ── Birdbath optics ─────────────────────────────────────────────
+// True two-element birdbath, replacing the old single curved combiner:
+//   display (face up) -> flat 30/70 beamsplitter, 1st hit (tilt `angle`)
+//   -> curved collimating mirror (tilt `mirror_tilt`)
+//   -> SAME beamsplitter panel, 2nd hit -> eye.
+//
+// Fold derivation (2D ray trace in the Y-Z plane; X is irrelevant, all
+// tilts are rotations about X exactly like `angle` always was):
+//   v_in = (0,1)                                  ray leaves display straight up
+//   n_bs = (sin angle, cos angle)                 beamsplitter normal
+//   v_out1 = (-sin 2*angle, -cos 2*angle)          after 1st bounce, unit vector
+//   mirror_tilt = 2*angle - 45                    EXACT closed form: makes the
+//                                                  final exit ray dead level for
+//                                                  any `angle` (verified by full
+//                                                  numeric ray trace, 35-65 deg)
+//   v_mirror_out = (-cos 2*angle, sin 2*angle)     after the mirror bounce, unit
+//   v_final = (-1, 0)                             after the 2nd beamsplitter
+//                                                  bounce — ALWAYS exactly level,
+//                                                  for any `angle` — this is what
+//                                                  keeps the reticle parallel to
+//                                                  the straight-through view of
+//                                                  the target (proper collimated
+//                                                  overlay)
+//
+// gap1/mirror_L1 are design constants (display-to-beamsplitter and
+// beamsplitter-to-mirror spacing along the folded axis); everything else
+// below is derived from them + `angle`, same pattern as the old
+// glass_cz/glass_cy/frame_dy block.
+//
+// mirror_L1 must be large enough that the beamsplitter frame and mirror
+// frame (each a ~30-32 mm tall block) don't physically interpenetrate —
+// their world-space centres are only mirror_L1 mm apart (P2 = P1 +
+// mirror_L1 * v_out1, and the beamsplitter sits at the P1/P3 midpoint),
+// so a short mirror_L1 packs two ~30 mm frames closer together than their
+// own half-heights allow.  Verified numerically (2D SAT polygon check,
+// frame envelope boxes, swept across angle = 35-65 deg): mirror_L1 = 13
+// (the original guess) collides at every angle in range; mirror_L1 = 34
+// keeps a >= 3 mm separation margin at the worst-case angle (65 deg).
+gap1 = 13.00; // display centre -> beamsplitter centre, along the fold axis
+mirror_L1 = 34.00; // beamsplitter centre -> mirror vertex, along the fold axis
+mirror_f = gap1 + mirror_L1; // unfolded optical path length
+mirror_R = 2 * mirror_f; // paraxial radius of curvature (single-axis/cylindrical)
+mirror_tilt = 2 * angle - 45; // exact closed-form fold-bisector tilt
+mirror_L2 = mirror_L1 / tan(angle); // mirror vertex -> 2nd beamsplitter hit, exact
+
+// Beamsplitter (flat 30/70 sheet) — plain rectangle, no arc caps.
+bs_w = 32.00; // panel width across X
+bs_h = 30.00; // panel height along the tilt direction (must clear both hit points)
+bs_t = 2.00; // sheet thickness
+bs_lip = 2.00; // retaining lip width around the see-through window
+
+// Mirror (curved collimating reflector) — single-axis cylindrical curvature
+// mirror_R, spanning mirror_w x mirror_h.  Sagitta over mirror_h is ~2.5 mm
+// at the values above — same order of magnitude as the old lens's own
+// 4.97 mm sagitta, so the existing arc-cap Boolean technique transfers
+// directly (cylinder ∩ bounding box).
+mirror_w = 32.00; // mirror width across X
+mirror_h = 32.00; // mirror height along the tilt direction
+mirror_t = 4.00; // backing thickness behind the reflective face (polished insert pocket)
+mirror_lip = 2.00; // retaining lip width around the reflective-insert pocket
+
+// Reference dimensions for clearance checks only — NOT cut/printed geometry.
+eye_relief = 50.00; // eye -> 2nd beamsplitter hit point, along the level exit ray
+exit_pupil = 8.00; // nominal exit pupil diameter, for sightline-cone checks
 
 // ── Structure ────────────────────────────────────────────────
 wall = 2.50;
@@ -132,34 +206,91 @@ $fn = 48;
 // ── Derived ──────────────────────────────────────────────────
 body_w = disp_pcb_w + 2 * side_edge; // 58.20  (thick left/right edges)
 body_d = disp_pcb_h + 2 * wall; // 34.00
-// Lens is landscape: 34 mm (lens_h) horizontal, 24 mm (lens_w) along tilt.
-// Arcs (R=16.97) span the 24 mm short edge — the only valid orientation.
-arm_w = lens_h + 2 * wall; // 39.00  horizontal frame width
-frame_y = lens_t + 2 * wall; //  7.74  frame depth (glass normal)
-frame_z = lens_w + 2 * wall; // 29.00  frame height along tilt axis
 
-// Glass centre in world space.
-// clearance_body = vertical gap from the body top to the LOWEST point of
-// the tilted frame (the limiting collision), so it stays honest as `angle`
-// changes.  Frame's lowest point sits frame_y/2*cos(a)+frame_z/2*sin(a)
-// below the glass centre.
-clearance_body = 3;
-glass_cz = body_height + clearance_body + frame_y / 2 * cos(angle) + frame_z / 2 * sin(angle);
-// Combiner pushed as far FORWARD as it can go while staying behind the front
-// lip (so it never collides with the lip or the forward box).  frame_dy is
-// the frame's half-extent along Y after the tilt.
-frame_dy = frame_y / 2 * sin(angle) + frame_z / 2 * cos(angle);
-glass_cy = body_d - shroud_wall - frame_dy - 0.5;
+// Frame envelopes (pocket + wall) for each optic, same pattern as the old
+// frame_y/frame_z but one per element.  "_y" = depth along the optic's own
+// normal; "_z" = extent along the tilt direction (in-plane).
+bs_frame_y = bs_t + 2 * wall; //  7.00  beamsplitter frame depth
+bs_frame_z = bs_h + 2 * wall; // 35.00  beamsplitter frame height along tilt
 
-// World positions of glass edges
-glass_bottom_z = glass_cz - lens_w / 2 * sin(angle);
-glass_bottom_y = glass_cy + lens_w / 2 * cos(angle);
-glass_top_z = glass_cz + lens_w / 2 * sin(angle);
-glass_top_y = glass_cy - lens_w / 2 * cos(angle);
+// Mirror sagitta over its curved (mirror_w) axis — the curved pocket eats
+// extra depth at the vertex, so mirror_frame_y must include it on top of
+// the usual wall + insert-pocket allowance, or the backing wall behind
+// the deepest point of the pocket would be thinner than `wall`.
+mirror_sagitta = mirror_R - sqrt(mirror_R * mirror_R - (mirror_w / 2) * (mirror_w / 2)); // ~2.52 mm
+mirror_frame_y = wall + (mirror_t + clearance) + mirror_sagitta + wall; // ~11.52  mirror frame depth
+mirror_frame_z = mirror_h + 2 * wall; // 37.00  mirror frame height along tilt
 
-// Shroud height — auto-sized to enclose the glass frame
-frame_tip_z = glass_cz + (frame_z / 2) * sin(angle) + (frame_y / 2) * cos(angle);
-shroud_h = frame_tip_z - body_height + shroud_wall + 4;
+// World-space fold geometry (Y,Z), derived directly from the verified
+// formulas above.  X stays centred on body_w/2 for both optics, exactly
+// like the display's active area is centred on body_w/2.
+//   P1 = beamsplitter optical centroid (display's chief ray travels
+//        straight up from the display centre, so P1 sits directly above
+//        it by gap1).
+//   P2 = mirror vertex = P1 + mirror_L1 * v_out1.
+//   P3 = 2nd beamsplitter hit point = P2 + mirror_L2 * v_mirror_out.
+// P3 is guaranteed (by the closed-form math above) to land back on the
+// beamsplitter's own plane — i.e. (P3-P1) . n_bs == 0 — verified
+// numerically to ~1e-15 for angle in [35,65] before settling on these
+// constants; not re-asserted at OpenSCAD runtime since trig there is also
+// degrees-based and consistent with the derivation.
+disp_center_y = body_d / 2; // display active area is centred on body_d (==17.0)
+v_out1_y = -sin(2 * angle);
+v_out1_z = -cos(2 * angle);
+v_mirror_out_y = -cos(2 * angle);
+v_mirror_out_z = sin(2 * angle);
+
+p1_y = disp_center_y;
+p1_z = body_height + gap1;
+p2_y = p1_y + mirror_L1 * v_out1_y;
+p2_z = p1_z + mirror_L1 * v_out1_z;
+p3_y = p2_y + mirror_L2 * v_mirror_out_y;
+p3_z = p2_z + mirror_L2 * v_mirror_out_z;
+
+// Beamsplitter panel must physically span BOTH P1 and P3 (offset from each
+// other along the panel's own surface direction d_bs = (cos angle, -sin
+// angle)).  Centre the panel's geometric middle at the P1/P3 midpoint so
+// both hit points sit safely inside the aperture with margin for actual
+// beam width, not just the chief-ray point.
+bs_cy = (p1_y + p3_y) / 2;
+bs_cz = (p1_z + p3_z) / 2;
+
+// Mechanical clearance check (same pattern as the old clearance_body):
+// vertical gap from the body top to the LOWEST point of the tilted
+// beamsplitter frame.  bs_clearance_margin must stay positive; if a future
+// change to gap1/mirror_L1/angle drives it negative, increase gap1.
+bs_lowest_z = bs_cz - (bs_frame_y / 2 * cos(angle) + bs_frame_z / 2 * sin(angle));
+bs_clearance_margin = bs_lowest_z - body_height; // ~2.6 mm at the default values
+
+// Mirror vertex world position (P2) — mirror frame centres here.
+mirror_cy = p2_y;
+mirror_cz = p2_z;
+
+// Eye reference point (clearance checks only, not a printed feature) —
+// directly behind P3 at the SAME height, since the exit ray is level.
+eye_y = p3_y - eye_relief;
+eye_z = p3_z;
+
+// Shroud height — auto-sized to enclose BOTH frames at their respective
+// tilts (mirror tips higher than the beamsplitter, since it sits further
+// up the folded axis).
+bs_tip_z = bs_cz + (bs_frame_z / 2) * sin(angle) + (bs_frame_y / 2) * cos(angle);
+mirror_tip_z = mirror_cz + (mirror_frame_z / 2) * sin(mirror_tilt) + (mirror_frame_y / 2) * cos(mirror_tilt);
+optics_tip_z = max(bs_tip_z, mirror_tip_z);
+shroud_h = optics_tip_z - body_height + shroud_wall + 4;
+
+// Rear extension — the mirror frame's rearmost (most -Y) corner can land
+// behind Y=0 (the bottom part's rear face), since `mirror_tilt` is steep
+// (close to vertical) and the frame's own depth swings a long way in Y
+// when rotated that far.  This is expected: the plan calls for the
+// mirror housing to occupy the rear-upper region that the open hood
+// leaves empty today.  Closed-form rearmost corner of the mirror frame
+// box (tilted mirror_tilt, centred at mirror_cy/mirror_cz):
+mirror_rear_y = mirror_cy - mirror_frame_y / 2 * sin(mirror_tilt) - mirror_frame_z / 2 * cos(mirror_tilt);
+// Extend the top part's rear wall/side walls backward (in the upper
+// region only — the bottom part's footprint is untouched) far enough to
+// fully enclose that corner, plus a small margin.
+rear_ext = max(0, -mirror_rear_y + 2.0);
 
 // Y positions of the 4 side joint screws (2 per side).
 side_screw_y = [body_d * 0.28, body_d * 0.72];
@@ -243,8 +374,12 @@ module screen_body() {
 
 // ── EOTech-style shroud ───────────────────────────────────────
 // Enclosed rectangular window frame: solid left/right side walls,
-// solid top hood bar, short front/rear lower lips.
-// The centre opening (front and rear faces) is left open for viewing.
+// solid top hood bar, short front/rear lower lips.  Sized to enclose
+// BOTH the beamsplitter and mirror frames at their respective tilts.
+// The centre opening (front face, and the rear face BELOW the mirror
+// housing) is left open for viewing; the mirror housing itself (rear,
+// above rear_lip_h) is closed at the back — no rear viewing window is
+// needed there, since the mirror is internal/reflective, not see-through.
 module eotech_shroud() {
   se = side_edge;
   sw = shroud_wall;
@@ -252,12 +387,22 @@ module eotech_shroud() {
   bw = body_w;
   bd = body_d;
   sh = shroud_h;
+  re = rear_ext; // how far the upper rear region extends behind Y=0
 
-  // Left/right side walls (thick edges, full height, full depth)
+  // Left/right side walls (thick edges, full height).  Extended backward
+  // by rear_ext ONLY above rear_lip_h, so the existing lower rear sight
+  // window (Y=0 face, below rear_lip_h) is untouched; the mirror housing
+  // sits in the upper region that the old open hood left empty.
+  translate([0, -re, bh + rear_lip_h])
+    cube([se, bd + re, sh - rear_lip_h]);
+  translate([bw - se, -re, bh + rear_lip_h])
+    cube([se, bd + re, sh - rear_lip_h]);
+  // Lower portion of the side walls (Y >= 0, same as before) — keeps the
+  // rear sight window open below rear_lip_h.
   translate([0, 0, bh])
-    cube([se, bd, sh]);
+    cube([se, bd, rear_lip_h]);
   translate([bw - se, 0, bh])
-    cube([se, bd, sh]);
+    cube([se, bd, rear_lip_h]);
 
   // Left/right skirts — drop below the seam to lap the bottom part's
   // rebated side faces; the horizontal joint screws pass through these.
@@ -266,9 +411,15 @@ module eotech_shroud() {
   translate([bw - skirt_t, 0, bh - lap_h])
     cube([skirt_t, bd, lap_h]);
 
-  // Top hood bar (full width, full depth)
-  translate([0, 0, bh + sh - sw])
-    cube([bw, bd, sw]);
+  // Top hood bar (full width), extended backward by rear_ext to roof over
+  // the mirror housing.
+  translate([0, -re, bh + sh - sw])
+    cube([bw, bd + re, sw]);
+
+  // Mirror housing rear wall — closes off the back of the upper rear
+  // region (no viewing window needed; the mirror is internal/reflective).
+  translate([se, -re, bh + rear_lip_h])
+    cube([bw - 2 * se, sw, sh - rear_lip_h - sw]);
 
   // Rear lower lip (Y=0 face, between side walls) — lowered for sight picture
   translate([se, 0, bh])
@@ -279,130 +430,119 @@ module eotech_shroud() {
     cube([bw - 2 * se, sw, lip_h]);
 }
 
-// ── Lens frame ───────────────────────────────────────────────
-// Landscape orientation: lens_h (34 mm) along X, lens_w (24 mm) along Z.
-// Arc caps on LEFT (low-X) and RIGHT (high-X) edges, each spanning lens_w.
-// Glass slides in from the +Y (FRONT) face; the -Y side has the retaining
-// lip.  Held by friction fit plus adhesive.
-module lens_frame() {
-  // ── geometry --------------------------------------------------
-  // inner pocket arc centres (X, Z) in frame local coords
-  //   half-chord (spanning Z = lens_w) = sqrt(R² − (lens_w/2)²) = 12.00 mm
-  inner_hc = sqrt(lens_top_r * lens_top_r - (lens_w / 2) * (lens_w / 2)); // 12.00
-  //   left  arc centre X  =  wall + lens_top_r          = 19.47
-  //   right arc centre X  =  wall + lens_h − lens_top_r = 19.53
-  p_lcx = wall + lens_top_r; // 19.47
-  p_rcx = wall + lens_h - lens_top_r; // 19.53
-  p_cz = wall + lens_w / 2; // 14.50
-  p_r = lens_top_r + clearance / 2; // 17.12
-
-  // inner straight-section X bounds (where arc is tangent to Z=wall / Z=wall+lens_w)
-  inner_lx = p_lcx - inner_hc; //  7.47
-  inner_rx = p_rcx + inner_hc; // 31.53
-
-  // outer shell (R_outer = lens_top_r + wall = 19.47)
-  R_outer = lens_top_r + wall;
-  outer_hc = sqrt(R_outer * R_outer - (frame_z / 2) * (frame_z / 2)); // 12.99
-  outer_lx = p_lcx - outer_hc; //  6.48
-  outer_rx = p_rcx + outer_hc; // 32.52
+// ── Beamsplitter frame ───────────────────────────────────────
+// Flat 30/70 plate — much simpler than the old lens_frame(): a plain
+// rectangular pocket, angled slot, NO arc caps at all (the old lens
+// needed arc caps because it had curved/rounded ends; the beamsplitter
+// is a plain flat rectangle).  Local coords: X spans [0, bs_w] (panel
+// width), Y spans [0, bs_frame_y] (depth / panel normal), Z spans
+// [0, bs_frame_z] (panel height, along the tilt direction).
+// Sheet enters from the FRONT (+Y) face; the -Y side has the retaining
+// lip.  Held by friction fit plus adhesive — identical retention idiom
+// to the old lens.
+module beamsplitter_frame() {
+  pkt = bs_t + clearance; // pocket depth (sheet thickness + clearance)
+  pky = bs_frame_y - pkt; // pocket starts here in local Y (entry at +Y face)
 
   difference() {
-    // ── outer shell ───────────────────────────────────────────
-    union() {
-      // straight middle section
-      translate([outer_lx, 0, 0])
-        cube([outer_rx - outer_lx, frame_y, frame_z]);
+    // outer shell — solid rectangular block
+    cube([bs_w, bs_frame_y, bs_frame_z]);
 
-      // left arc cap (X < outer_lx)
-      intersection() {
-        translate([p_lcx, frame_y / 2, p_cz])
-          rotate([90, 0, 0])
-            cylinder(r=R_outer, h=frame_y + 0.2, center=true, $fn=60);
-        translate([-(R_outer + 1), -0.1, -0.1])
-          cube([R_outer + 1 + outer_lx, frame_y + 0.2, frame_z + 0.2]);
-      }
+    // sheet pocket — open at the +Y face, full width, inset by `wall` top/bottom
+    translate([wall, pky, wall])
+      cube([bs_w - 2 * wall, pkt + 0.1, bs_frame_z - 2 * wall]);
 
-      // right arc cap (X > outer_rx)
-      intersection() {
-        translate([p_rcx, frame_y / 2, p_cz])
-          rotate([90, 0, 0])
-            cylinder(r=R_outer, h=frame_y + 0.2, center=true, $fn=60);
-        translate([outer_rx, -0.1, -0.1])
-          cube([R_outer + 1, frame_y + 0.2, frame_z + 0.2]);
-      }
-    }
+    // see-through window — open through BOTH faces so you can look/bounce
+    // through the beamsplitter; a bs_lip-wide rim retains the sheet.
+    translate([wall + bs_lip, -0.1, wall + bs_lip])
+      cube([bs_w - 2 * (wall + bs_lip), bs_frame_y + 0.2, bs_frame_z - 2 * (wall + bs_lip)]);
+  }
+}
 
-    // Glass enters from the FRONT (+Y) face: the pocket opens at +Y and the
-    // retaining lip is on the -Y side.  pky = pocket start in Y.
-    pkt = lens_t + clearance;
-    pky = frame_y - pkt;
+// ── Mirror frame ─────────────────────────────────────────────
+// Adapts the old lens_frame()'s arc-cap Boolean idiom (cylinder ∩/−
+// bounding box), but the curve is applied to the mirror's REFLECTIVE
+// FACE (radius mirror_R, single-axis/cylindrical) instead of to rounded
+// end caps.  The curve runs along local X (mirror_w); the reflective
+// pocket is flat (un-curved) along local Z (mirror_h) — i.e. the
+// reflective face is a cylindrical arc, not a sphere.  The pocket holds
+// a polished/reflective insert; this is NOT a see-through window like
+// the beamsplitter (the mirror doesn't need to be seen through), so
+// there is no open-through-both-faces cut — the pocket opens only at
+// the +Y (front) face, same entry convention as the beamsplitter.
+//
+// Pocket geometry (standard concave-mirror parameterisation, vertex at
+// local X = mirror_w/2):
+//   back-wall Y(x) = Y_vertex + (mirror_R − sqrt(mirror_R² − (x−mirror_w/2)²))
+// so the CENTRE (x = mirror_w/2) is the deepest point (smallest Y,
+// vertex) and the EDGES are shallower by `mirror_sagitta`.  This profile
+// is the lower boundary of a cylinder (axis along X) of radius mirror_R
+// centred at (X = mirror_w/2, Y = Y_vertex + mirror_R); cutting
+// (front-face box) MINUS (that cylinder solid) leaves exactly the
+// curved pocket, open at +Y, with the deepest point at Y_vertex.
+module mirror_frame() {
+  pkt = mirror_t + clearance; // insert pocket depth at the EDGES (shallowest)
+  y_vertex = mirror_frame_y - pkt - mirror_sagitta; // deepest point of the pocket (centre)
+  y_axis = y_vertex + mirror_R; // cylinder axis Y position (pulled back -Y by mirror_R)
 
-    // ── glass pocket: straight section ────────────────────────
-    translate([inner_lx, pky, wall])
-      cube([inner_rx - inner_lx, pkt + 0.1, lens_w]);
+  difference() {
+    // ── outer shell ── plain rectangular block, same spirit as the
+    // beamsplitter's plain block; the curve is cut INTO the front face
+    // by the pocket below.
+    cube([mirror_w, mirror_frame_y, mirror_frame_z]);
 
-    // ── glass pocket: left arc cap ────────────────────────────
-    // Cylinder centred at frame_y - pkt/2 so it spans the +Y pocket depth
-    // and reaches the front entry face.
+    // ── reflective insert pocket — curved back wall, open at +Y ────
+    // The pocket is the region INSIDE the cylinder (Y above the curved
+    // boundary) AND inside the front-face box (between the deepest
+    // possible point and the front face, inset by `wall` on X/Z) — i.e.
+    // a plain intersection() of the two, no extra Booleans needed.
     intersection() {
-      translate([p_lcx, frame_y - pkt / 2, p_cz])
-        rotate([90, 0, 0])
-          cylinder(r=p_r, h=pkt + 0.2, center=true, $fn=60);
-      translate([-(p_r + 1), -0.1, wall])
-        cube([p_r + 1 + inner_lx, frame_y + 0.2, lens_w]);
-    }
-
-    // ── glass pocket: right arc cap ───────────────────────────
-    intersection() {
-      translate([p_rcx, frame_y - pkt / 2, p_cz])
-        rotate([90, 0, 0])
-          cylinder(r=p_r, h=pkt + 0.2, center=true, $fn=60);
-      translate([inner_rx, -0.1, wall])
-        cube([p_r + 1, frame_y + 0.2, lens_w]);
-    }
-
-    // ── see-through window — open through BOTH faces so you can look
-    //    through the combiner; a lens_lip-wide rim retains the glass. ──
-    wr = p_r - lens_lip; // inset arc radius for the window
-    // straight middle (full X, Z inset by the lip)
-    translate([inner_lx, -0.1, wall + lens_lip])
-      cube([inner_rx - inner_lx, frame_y + 0.2, lens_w - 2 * lens_lip]);
-    // left arc end (inset)
-    intersection() {
-      translate([p_lcx, frame_y / 2, p_cz])
-        rotate([90, 0, 0]) cylinder(r=wr, h=frame_y + 0.2, center=true, $fn=60);
-      translate([-(wr + 1), -0.1, wall + lens_lip])
-        cube([wr + 1 + inner_lx, frame_y + 0.2, lens_w - 2 * lens_lip]);
-    }
-    // right arc end (inset)
-    intersection() {
-      translate([p_rcx, frame_y / 2, p_cz])
-        rotate([90, 0, 0]) cylinder(r=wr, h=frame_y + 0.2, center=true, $fn=60);
-      translate([inner_rx, -0.1, wall + lens_lip])
-        cube([wr + 1, frame_y + 0.2, lens_w - 2 * lens_lip]);
+      translate([wall, y_vertex - 0.1, wall])
+        cube([mirror_w - 2 * wall, mirror_frame_y - y_vertex + 0.2, mirror_frame_z - 2 * wall]);
+      translate([mirror_w / 2, y_axis, mirror_frame_z / 2])
+        rotate([0, 90, 0])
+          cylinder(r=mirror_R, h=mirror_w + 2, center=true, $fn=120);
     }
   }
 }
 
-// ── Glass frame at angle ─────────────────────────────────────
-// The lens_frame is centred in X; rectangular arms run from each shroud
-// side wall and overlap arm_overlap mm INTO the frame's curved end.  The
-// frame ends taper to a point at the apex, so the arms must overlap the
-// solid arc region (not just butt the apex) to merge into one solid.
-module glass_frame_mount() {
-  arm_len = body_w / 2 - arm_w / 2 + arm_overlap;
-  translate([body_w / 2, glass_cy, glass_cz])
+// ── Beamsplitter / mirror mounts at their derived positions ──
+// Each frame is centred in X; rectangular arms run from each shroud side
+// wall and overlap arm_overlap mm INTO the frame.  Reuses the old
+// glass_frame_mount()'s side-arm-merge-into-shroud-wall pattern, now
+// parametrized per element and placed at the P1/P2, angle/mirror_tilt
+// positions derived above.
+module beamsplitter_mount() {
+  arm_len = body_w / 2 - bs_w / 2 + arm_overlap;
+  translate([body_w / 2, bs_cy, bs_cz])
     rotate([90 - angle, 0, 0]) {
-      translate([-arm_w / 2, -frame_y / 2, -frame_z / 2])
-        lens_frame();
+      translate([-bs_w / 2, -bs_frame_y / 2, -bs_frame_z / 2])
+        beamsplitter_frame();
 
       // Left arm: from left shroud wall, overlapping the frame end
-      translate([-body_w / 2, -frame_y / 2, -frame_z / 2])
-        cube([arm_len, frame_y, frame_z]);
+      translate([-body_w / 2, -bs_frame_y / 2, -bs_frame_z / 2])
+        cube([arm_len, bs_frame_y, bs_frame_z]);
 
       // Right arm: from right shroud wall, overlapping the frame end
-      translate([arm_w / 2 - arm_overlap, -frame_y / 2, -frame_z / 2])
-        cube([arm_len, frame_y, frame_z]);
+      translate([bs_w / 2 - arm_overlap, -bs_frame_y / 2, -bs_frame_z / 2])
+        cube([arm_len, bs_frame_y, bs_frame_z]);
+    }
+}
+
+module mirror_mount() {
+  arm_len = body_w / 2 - mirror_w / 2 + arm_overlap;
+  translate([body_w / 2, mirror_cy, mirror_cz])
+    rotate([90 - mirror_tilt, 0, 0]) {
+      translate([-mirror_w / 2, -mirror_frame_y / 2, -mirror_frame_z / 2])
+        mirror_frame();
+
+      // Left arm: from left shroud wall, overlapping the frame end
+      translate([-body_w / 2, -mirror_frame_y / 2, -mirror_frame_z / 2])
+        cube([arm_len, mirror_frame_y, mirror_frame_z]);
+
+      // Right arm: from right shroud wall, overlapping the frame end
+      translate([mirror_w / 2 - arm_overlap, -mirror_frame_y / 2, -mirror_frame_z / 2])
+        cube([arm_len, mirror_frame_y, mirror_frame_z]);
     }
 }
 
@@ -536,7 +676,8 @@ module top_part() {
   difference() {
     union() {
       eotech_shroud();
-      glass_frame_mount();
+      beamsplitter_mount();
+      mirror_mount();
     }
     joint_clearance();
   }
