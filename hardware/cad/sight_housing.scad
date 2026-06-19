@@ -149,20 +149,32 @@ m3_clearance_fit = 0.40; // added to the M3 body dia for a free-fit through-hole
 // combiner, horizontal); everything else below is derived from them, same
 // pattern as the old glass_cz/glass_cy/frame_dy block.
 //
-// display_to_beamsplitter_gap grew from the old topology's 13 mm to 30 mm:
-// at the fixed 45 deg beamsplitter tilt, the frame's own half-diagonal
-// projects 14.85 mm in both Y and Z ((3.5+17.5)*cos(45) = 14.85, i.e. half
-// beamsplitter_frame_depth + half beamsplitter_frame_height, projected).
-// The combiner, now UNTILTED (vertical, axis-aligned bounding box, no
-// diagonal projection), has half-height combiner_frame_height/2 = 18.5 mm
-// (unaffected by combiner_radius) — THIS is the real binding constraint on
-// the gap: need (body_height+gap) - 18.5 >= box_wall_top_z(27.5) + margin,
-// i.e. gap >= 26 + margin.  gap = 30 gives combiner's lowest Z = 31.5, a
-// 4.0 mm margin over box_wall_top_z — verified numerically.
-display_to_beamsplitter_gap = 30.00; // display centre -> beamsplitter centre, vertical
+// display_to_beamsplitter_gap is set so the combiner's bottom edge lands
+// EXACTLY on the forward-box lid top (box_height) — no clearance gap below
+// the optic, the front wall meets the box lid flush.  Since the combiner is
+// untilted (vertical, axis-aligned), its lowest Z = (body_height + gap) -
+// combiner_frame_height/2; setting that equal to box_height
+// (= body_height + front_lip_height) gives the expression below.  The
+// beamsplitter (tilted) still clears the box top by a healthy margin at this
+// gap (checked by beamsplitter_clearance_margin).
+// = front_lip_height (10) + combiner_frame_height/2 (14) = 24.0; literal so it
+// doesn't depend on the later definitions of those two variables.
+display_to_beamsplitter_gap = 24.00; // display centre -> beamsplitter centre, vertical — combiner bottom flush with box lid top
 beamsplitter_to_combiner_throw = 30.00; // beamsplitter centre -> combiner centre, horizontal (+Y)
-combiner_focal_length = display_to_beamsplitter_gap + beamsplitter_to_combiner_throw; // unfolded optical path length (60.0)
-combiner_radius = 2 * combiner_focal_length; // paraxial radius of curvature (single-axis/cylindrical) (120.0)
+
+// ── Combiner location ⇄ required lens focal length ──
+// The combiner is LOCATED by the throw above (-> combiner_center_y below): it
+// sits one folded-path length away from the display.  For the collimating
+// lens to project the reticle to infinity (parallax-free), the OLED must lie
+// at the lens focal plane, i.e. the folded display->combiner path must equal
+// the lens focal length.  So the focal length is not a free input — it is
+// CALCULATED FROM THE GEOMETRY: the unfolded path is the vertical gap plus the
+// horizontal throw.  With the gap pinned at 24 mm by the flush-fit constraint,
+// the throw is the knob that sets this length (it doesn't affect box
+// clearance).  The value below is therefore the focal length the physical lens
+// must have; pick/grind the lens to match it (or change the throw to match a
+// lens you already have).
+combiner_focal_length = display_to_beamsplitter_gap + beamsplitter_to_combiner_throw; // REQUIRED lens focal length = folded path = 24 + 30 = 54.0 mm
 combiner_tilt = 90; // combiner tilt from horizontal, deg — FIXED, vertical (replaces the old derived mirror_tilt)
 
 // Beamsplitter (flat 30/70 sheet) — plain rectangle, no arc caps.  The
@@ -177,17 +189,19 @@ beamsplitter_thickness = 2.00; // sheet thickness
 beamsplitter_frame_border = 2.00; // holder frame border on ALL sides (replaces wall+lip = 4.5)
 beamsplitter_rear_lip = 1.50; // rear retaining-lip overlap onto the sheet (does NOT add to the front/side border)
 
-// Combiner (curved partial-mirror reflector) — single-axis cylindrical
-// curvature combiner_radius, spanning combiner_optic_width x
-// combiner_optic_height.  Sagitta over the height is ~1.1 mm at the values
-// above (combiner_radius grew to 120 in this topology, so the curve is
-// shallower than the old design's ~2.5 mm) — the existing arc-cap Boolean
-// technique still transfers directly (cylinder ∩ bounding box).
-combiner_optic_width = 32.00; // combiner clear width across X (optic)
-combiner_optic_height = 32.00; // combiner clear height along the tilt direction (optic)
-combiner_thickness = 4.00; // backing thickness behind the reflective face (polished insert pocket)
+// Combiner — the previously-used COLLIMATING LENS (hardware/lens/lense.avif),
+// a flat stadium-shaped element (rounded LEFT/RIGHT end caps), NOT a curved
+// partial mirror.  The lens carries its own optical power; the holder only
+// needs a flat-bottomed stadium pocket of the lens thickness.  Same tested
+// holder geometry as the pre-birdbath lens_frame() — arc-cap Boolean idiom
+// (cylinder ∩ bounding box) for the rounded ends — re-homed into the
+// birdbath's vertical (combiner_tilt = 90°) combiner position.
+combiner_optic_width = 34.00; // lens clear width across X (the 34 mm dim) [lense.avif]
+combiner_optic_height = 24.00; // lens clear height along the tilt direction (the 24 mm dim) [lense.avif]
+combiner_thickness = 2.74; // lens thickness (flat collimating lens) [lense.avif]
+combiner_end_radius = 16.97; // radius of the rounded LEFT/RIGHT end caps (span the 24 mm height) [lense.avif]
 combiner_frame_border = 2.00; // holder frame border on ALL sides — matches beamsplitter_frame_border (replaces wall+lip = 4.5)
-combiner_rear_lip = 1.50; // rear retaining-lip overlap onto the insert (does NOT add to the front/side border)
+combiner_rear_lip = 1.50; // rear retaining-lip overlap onto the lens (does NOT add to the front/side border)
 
 // Reference dimensions for clearance checks only — NOT cut/printed geometry.
 eye_relief = 50.00; // eye -> combiner hit point, along the level exit ray
@@ -267,14 +281,13 @@ beamsplitter_frame_width = beamsplitter_optic_width + 2 * beamsplitter_frame_bor
 beamsplitter_frame_depth = (beamsplitter_thickness + clearance) + beamsplitter_frame_border; // 4.30  sheet pocket + 2 mm backing
 beamsplitter_frame_height = beamsplitter_optic_height + 2 * beamsplitter_frame_border; // 34.00  outer height along tilt
 
-// Combiner sagitta over its curved (width) axis — the curved pocket eats
-// extra depth at the vertex, so combiner_frame_depth must include it on top
-// of the insert pocket + one border backing, or the backing wall behind the
-// deepest point of the pocket would be thinner than the 2 mm border.
-combiner_sagitta = combiner_radius - sqrt(combiner_radius * combiner_radius - (combiner_optic_width / 2) * (combiner_optic_width / 2)); // ~1.07 mm
-combiner_frame_width = combiner_optic_width + 2 * combiner_frame_border; // 36.00  outer width (X)
-combiner_frame_depth = (combiner_thickness + clearance) + combiner_sagitta + combiner_frame_border; // ~7.37  insert pocket + curve + 2 mm backing
-combiner_frame_height = combiner_optic_height + 2 * combiner_frame_border; // 36.00  outer height along tilt
+// Flat collimating lens — no curved reflective face, so no sagitta term:
+// the pocket is flat-bottomed and combiner_frame_depth is just the lens
+// pocket + one border backing.
+combiner_sagitta = 0; // flat lens (kept for the frame_depth expression below)
+combiner_frame_width = combiner_optic_width + 2 * combiner_frame_border; // 38.00  outer width (X)
+combiner_frame_depth = (combiner_thickness + clearance) + combiner_sagitta + combiner_frame_border; // ~5.04  lens pocket + 2 mm backing
+combiner_frame_height = combiner_optic_height + 2 * combiner_frame_border; // 28.00  outer height along tilt
 
 // World-space fold geometry (Y,Z), derived directly from the verified
 // formulas above.  X stays centred on body_width/2 for both optics, exactly
@@ -560,73 +573,90 @@ module beamsplitter_frame() {
 }
 
 // ── Combiner frame ───────────────────────────────────────────
-// Adapts the old lens_frame()'s arc-cap Boolean idiom (cylinder ∩/−
-// bounding box), but the curve is applied to the combiner's PARTIALLY
-// REFLECTIVE FACE (radius combiner_radius, single-axis/cylindrical) instead
-// of to rounded end caps.  The curve runs along local X (combiner width);
-// the pocket is flat (un-curved) along local Z (combiner height) — i.e. the
-// reflective face is a cylindrical arc, not a sphere.
+// Holds the COLLIMATING LENS (hardware/lens/lense.avif): a flat stadium-
+// shaped element — straight top/bottom, rounded LEFT/RIGHT end caps of radius
+// combiner_end_radius spanning the optic height.  This is the same tested
+// arc-cap Boolean idiom (cylinder ∩ bounding box) as the pre-birdbath
+// lens_frame(), re-homed into the birdbath's vertical combiner position; the
+// lens carries its own optical power, so the pocket is simply FLAT-bottomed
+// (no curved reflective face, no sagitta).
 //
-// This element is a PARTIAL mirror — unlike the old fully-opaque mirror
-// framing in the rejected topology, the eye looks straight THROUGH it (both
-// to see the real target and to see the reflected reticle), so it MUST be
-// see-through, the same way the beamsplitter is.  Two separate cuts live in
-// the same difference(): the curved insert pocket (below) for the polished/
-// partially-reflective coating/insert, open only at the +Y face; PLUS a
-// straight through-window spanning the full local-Y depth, mirroring
-// beamsplitter_frame()'s see-through window pattern exactly (same border/lip
-// inset idiom, just with the combiner_* dims in place of the beamsplitter's
-// equivalents).  Since the through-window spans the FULL local-Y depth, it
-// naturally unions with (extends through) the curved pocket's own empty
-// space — no special interaction logic needed.  Result: a combiner_rear_lip-
-// wide retaining rim around a window open from both faces, with the curved
-// reflective insert sitting in its own pocket nearer the +Y face.
-//
-// Pocket geometry (standard concave-mirror parameterisation, vertex at
-// local X = combiner_optic_width/2):
-//   back-wall Y(x) = Y_vertex + (R − sqrt(R² − (x−width/2)²))
-// so the CENTRE (x = width/2) is the deepest point (smallest Y, vertex) and
-// the EDGES are shallower by combiner_sagitta.  This profile is the lower
-// boundary of a cylinder (axis along X) of radius combiner_radius centred at
-// (X = width/2, Y = Y_vertex + R); cutting (front-face box) INTERSECTED WITH
-// (that cylinder solid) leaves exactly the curved pocket, open at +Y, with
-// the deepest point at Y_vertex — NOT a nested difference with an oversized
-// "everything outside the cylinder" box; that idiom was tried and discarded
-// (it failed to cut anything because the box ended up disjoint from the
-// cylinder's relevant range).
+// The eye looks straight THROUGH the lens (both at the real target and at the
+// reflected reticle), so two cuts live in the same difference(): a flat
+// stadium insert pocket open only at the +Y face, PLUS a stadium see-through
+// window spanning the full local-Y depth, leaving a combiner_rear_lip-wide
+// retaining rim.  The pocket and window arc caps are clipped to the optic
+// height band so each end blends flush with the straight section (see the
+// window's tangent-at-chord radius below).
 module combiner_frame() {
-  frame_border = combiner_frame_border; // frame border, all sides (matches the beamsplitter)
-  pocket_depth = combiner_thickness + clearance; // insert pocket depth at the EDGES (shallowest)
-  pocket_vertex_y = combiner_frame_depth - pocket_depth - combiner_sagitta; // deepest point of the pocket (centre)
-  cylinder_axis_y = pocket_vertex_y + combiner_radius; // cylinder axis Y position (pulled back -Y by combiner_radius)
+  border = combiner_frame_border; // frame border, all sides (matches the beamsplitter)
+
+  // ── stadium outline (rounded LEFT/RIGHT end caps) ──
+  // Arc centres in local (X, Z); each cap spans the optic height (Z) and
+  // bulges along X.  half-chord = sqrt(R² − (height/2)²).
+  inner_hc = sqrt(combiner_end_radius * combiner_end_radius - (combiner_optic_height / 2) * (combiner_optic_height / 2));
+  p_lcx = border + combiner_end_radius;                         // left  arc centre X
+  p_rcx = border + combiner_optic_width - combiner_end_radius;  // right arc centre X
+  p_cz = border + combiner_optic_height / 2;                    // arc centre Z (optic mid-height)
+  p_r = combiner_end_radius + clearance / 2;                    // pocket arc radius (lens + slide clearance)
+
+  // straight-section X bounds (arc tangent to the optic top/bottom)
+  inner_lx = p_lcx - inner_hc;
+  inner_rx = p_rcx + inner_hc;
 
   difference() {
-    // ── outer shell ── plain rectangular block, same spirit as the
-    // beamsplitter's plain block; the curve is cut INTO the front face
-    // by the pocket below.  Outer width = combiner_frame_width (optic + 2*border).
+    // ── outer shell ── plain rectangular block (keeps the cartridge ears /
+    // side-arm overlap mechanics simple); the stadium is cut INTO it below.
     cube([combiner_frame_width, combiner_frame_depth, combiner_frame_height]);
 
-    // ── reflective insert pocket — curved back wall, open at +Y ────
-    // The pocket is the region INSIDE the cylinder (Y above the curved
-    // boundary) AND inside the front-face box (between the deepest
-    // possible point and the front face, inset by frame_border on X/Z) —
-    // i.e. a plain intersection() of the two, no extra Booleans needed.
+    // ── lens pocket — flat-bottomed stadium, open at +Y ──
+    pkt = combiner_thickness + clearance;     // pocket depth
+    pky = combiner_frame_depth - pkt;         // pocket start in Y (opens at +Y)
+    // straight middle
+    translate([inner_lx, pky, border])
+      cube([inner_rx - inner_lx, pkt + 0.1, combiner_optic_height]);
+    // left arc cap
     intersection() {
-      translate([frame_border, pocket_vertex_y - 0.1, frame_border])
-        cube([combiner_optic_width, combiner_frame_depth - pocket_vertex_y + 0.2, combiner_frame_height - 2 * frame_border]);
-      translate([combiner_frame_width / 2, cylinder_axis_y, combiner_frame_height / 2])
-        rotate([0, 90, 0])
-          cylinder(r=combiner_radius, h=combiner_frame_width + 2, center=true, $fn=120);
+      translate([p_lcx, combiner_frame_depth - pkt / 2, p_cz])
+        rotate([90, 0, 0]) cylinder(r=p_r, h=pkt + 0.2, center=true, $fn=60);
+      translate([-(p_r + 1), pky - 0.1, border])
+        cube([p_r + 1 + inner_lx, pkt + 0.2, combiner_optic_height]);
+    }
+    // right arc cap
+    intersection() {
+      translate([p_rcx, combiner_frame_depth - pkt / 2, p_cz])
+        rotate([90, 0, 0]) cylinder(r=p_r, h=pkt + 0.2, center=true, $fn=60);
+      translate([inner_rx, pky - 0.1, border])
+        cube([p_r + 1, pkt + 0.2, combiner_optic_height]);
     }
 
-    // ── see-through window — open through BOTH faces, same idiom as
-    // beamsplitter_frame()'s window — so the eye can look straight
-    // through the partial-mirror combiner; a combiner_rear_lip-wide rear
-    // rim retains the curved insert/coating.  Spans the full local-Y
-    // depth, so it naturally unions with the curved pocket's empty space
-    // above.
-    translate([frame_border + combiner_rear_lip, -0.1, frame_border + combiner_rear_lip])
-      cube([combiner_frame_width - 2 * (frame_border + combiner_rear_lip), combiner_frame_depth + 0.2, combiner_frame_height - 2 * (frame_border + combiner_rear_lip)]);
+    // ── see-through window — open through BOTH faces so the eye looks
+    // straight through the lens; a combiner_rear_lip-wide rim retains it.
+    // The window is the lens stadium inset by combiner_rear_lip: the straight
+    // top/bottom move in by the lip, and the arc radius is chosen so each cap
+    // meets the inset straight band FLUSH at the chord (x = inner_lx/inner_rx)
+    // — i.e. its half-height there equals (optic_height/2 − lip).  Deriving wr
+    // from p_r − lip instead would leave the cap shy of the straight band and
+    // poke a step into the rounded end (the protrusion).
+    win_half_h = combiner_optic_height / 2 - combiner_rear_lip; // inset band half-height
+    wr = sqrt(inner_hc * inner_hc + win_half_h * win_half_h); // tangent-at-chord arc radius
+    // straight middle (Z inset by the lip)
+    translate([inner_lx, -0.1, border + combiner_rear_lip])
+      cube([inner_rx - inner_lx, combiner_frame_depth + 0.2, combiner_optic_height - 2 * combiner_rear_lip]);
+    // left arc end (inset)
+    intersection() {
+      translate([p_lcx, combiner_frame_depth / 2, p_cz])
+        rotate([90, 0, 0]) cylinder(r=wr, h=combiner_frame_depth + 0.2, center=true, $fn=60);
+      translate([-(wr + 1), -0.1, border + combiner_rear_lip])
+        cube([wr + 1 + inner_lx, combiner_frame_depth + 0.2, combiner_optic_height - 2 * combiner_rear_lip]);
+    }
+    // right arc end (inset)
+    intersection() {
+      translate([p_rcx, combiner_frame_depth / 2, p_cz])
+        rotate([90, 0, 0]) cylinder(r=wr, h=combiner_frame_depth + 0.2, center=true, $fn=60);
+      translate([inner_rx, -0.1, border + combiner_rear_lip])
+        cube([wr + 1, combiner_frame_depth + 0.2, combiner_optic_height - 2 * combiner_rear_lip]);
+    }
   }
 }
 

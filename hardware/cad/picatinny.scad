@@ -51,6 +51,14 @@ pic_bolt_clear     = 4.30;  // M4 through-bolt clearance (bar + body)
 pic_bolt_insert_d  = 6.00;  // M4 brass insert OD (far face of body)
 pic_bolt_insert_depth = 6.00;
 
+// Locating pins (2): round bosses on the body's mating face that drop into
+// clearance holes in the bar.  They fix the bar's fore/aft (Y) and vertical
+// (Z) position relative to the body, so the two clamp halves can't shift out
+// of alignment — while still letting the cross-bolts draw the bar inward (X).
+pic_loc_pin_d   = 3.00;   // boss diameter
+pic_loc_pin_len = 4.00;   // protrusion from the body mating face
+pic_loc_clear   = 0.25;   // radial clearance of the bar's locating hole
+
 $fn = 48;
 
 // Rail cross-section (X = width, second coord = height above base).
@@ -79,6 +87,10 @@ module _pic_extrude(length, grow = 0) {
 // bolts run through solid material clear of the channel).
 function _pic_bolt_z() = pic_top_z + pic_ceil_t / 2;
 
+// Locating-pin Y positions — shared by the body (bosses) and the bar
+// (clearance holes) so they always line up.  Kept well clear of the bolts.
+function _pic_loc_yy(length) = [length * 0.15, length * 0.85];
+
 // Whole (un-split) clamp solid in "up" coords: jaw+ceiling block minus the
 // rail channel, plus the recoil lug.
 module _clamp_solid_up(length) {
@@ -101,7 +113,7 @@ module _clamp_solid_up(length) {
 // ── Fixed body (hanging: mount face at z=0, body below) ──────
 module picatinny_clamp_body(length) {
   bolt_z = _pic_bolt_z();
-  translate([0, 0, -pic_clamp_top + 0.2])
+  translate([0, 0, -pic_clamp_top + 0.2]) {
     difference() {
       // keep everything right of the split plane (+ gap)
       intersection() {
@@ -119,6 +131,11 @@ module picatinny_clamp_body(length) {
           rotate([0, 90, 0]) cylinder(d = pic_bolt_insert_d, h = pic_bolt_insert_depth + 0.2);
       }
     }
+    // locating bosses — protrude from the mating face toward the bar
+    for (yy = _pic_loc_yy(length))
+      translate([pic_split_x + pic_split_gap, yy, bolt_z])
+        rotate([0, -90, 0]) cylinder(d = pic_loc_pin_d, h = pic_loc_pin_len);
+  }
 }
 
 // ── Removable bar / left jaw (same coord frame as the body) ──
@@ -136,6 +153,13 @@ module picatinny_clamp_bar(length) {
       for (yy = [length * 0.28, length * 0.72])
         translate([-pic_clamp_w / 2 - 0.1, yy, bolt_z])
           rotate([0, 90, 0]) cylinder(d = pic_bolt_clear, h = pic_clamp_w / 2 + 2);
+      // locating holes — receive the body's bosses; bored deeper than the
+      // boss reaches so the bolts can still pull the bar fully inward
+      for (yy = _pic_loc_yy(length))
+        translate([pic_split_x + pic_split_gap, yy, bolt_z])
+          rotate([0, -90, 0])
+            cylinder(d = pic_loc_pin_d + 2 * pic_loc_clear,
+                     h = pic_split_gap + pic_loc_pin_len + 1.0);
     }
 }
 

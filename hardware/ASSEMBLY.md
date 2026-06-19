@@ -48,7 +48,7 @@ for checking fit; it is not a printable export.
 | Item | Size | Qty | Notes |
 |------|------|-----|-------|
 | Plate beamsplitter, 30/70 (R/T) | 32 × 30 mm, 2.0 mm thick | 1 | Flat sheet. Drops into the angled (45°) frame pocket from the front (+Y) face |
-| Curved partial-mirror combiner | 32 × 32 mm, 4.0 mm backing, **cylindrical R ≈ 120 mm**, concave reflective face | 1 | Sits vertical. **Concave/reflective face must point back toward the beamsplitter (−Y)** |
+| Collimating combiner lens | 34 × 24 mm stadium (rounded R16.97 ends), 2.74 mm thick | 1 | The previously-used lens ([`lens/lense.avif`](lens/lense.avif)). Sits vertical; drops into the front cartridge pocket from the front (+Y) face |
 
 Both are retained by friction fit in their pockets **plus adhesive** (no set
 screws — the merged side arms bury any screw access). A ~1.5 mm rim laps each
@@ -182,8 +182,8 @@ Keep inserts square to the bore; let them cool before loading.
 ### Step 2 — Bond the optics into the top part
 - Seat the **beamsplitter** sheet into its 45° pocket from the front face;
   dab adhesive on the rim. It should sit flush under the retaining lip.
-- Seat the **combiner** into its vertical pocket with the **concave
-  reflective face toward the rear (−Y, toward the beamsplitter)**; bond.
+- Seat the **collimating combiner lens** into its vertical stadium pocket
+  from the front (+Y) face; it sits flush under the rear retaining rim. Bond.
 - Let the adhesive fully cure before further handling.
 
 ### Step 3 — Fit and wire the display
