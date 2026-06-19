@@ -4,17 +4,17 @@
 // Two screw-joined parts, split at the seam z = body_height (20 mm):
 //   bottom_part()  display holder = screen_body() + joint inserts
 //   top_part()     optics holder  = eotech_shroud() + beamsplitter_mount()
-//                                   + mirror_mount()
+//                                   + combiner_mount()
 //
 // Sub-modules:
 //   screen_body()         box holding OLED + electronics, display up
 //   eotech_shroud()       rectangular window frame — left/right walls,
 //                         top hood, front/rear lower lips, sized to
 //                         enclose BOTH optics frames
-//   beamsplitter_frame()  flat 30/70 plate frame at `angle` degrees
-//   mirror_frame()        curved partial-mirror ("combiner") frame, fixed
+//   beamsplitter_frame()  flat 30/70 plate frame at `beamsplitter_tilt` deg
+//   combiner_frame()      curved partial-mirror ("combiner") frame, fixed
 //                         vertical (`combiner_tilt` = 90°)
-//   beamsplitter_mount()  / mirror_mount()  position each frame in world
+//   beamsplitter_mount()  / combiner_mount()  position each frame in world
 //                         space (side arms overlap the frame and merge
 //                         into the shroud side walls, same idiom as v4)
 //
@@ -35,9 +35,9 @@
 //   The left/right edges are thickened (side_edge) to host the inserts.
 //
 // Forward box: a hollow electronics enclosure extends from the optics head
-//   toward the muzzle (box_len), full width, up to the lens-opening height,
-//   with a screw-on top lid.  Cable routes UNDER the PCB to a plug opening
-//   in the box front face.
+//   toward the muzzle (box_length), full width, up to the lens-opening
+//   height, with a screw-on top lid.  Cable routes UNDER the PCB to a plug
+//   opening in the box front face.
 //
 // Mount: a female MIL-STD-1913 Picatinny clamp (picatinny.scad) is fused
 //   to the underside and runs the WHOLE length of the sight.
@@ -45,7 +45,7 @@
 // Optics retention: friction fit in the frame pockets + adhesive.
 // (No set screws — the merged side arms would bury them.)
 //
-// Set `part` below to choose what to render/export.
+// Set `render_part` below to choose what to render/export.
 //
 // Display: Waveshare 1.27-inch SSD1351 RGB OLED
 //   PCB     42.20 × 29.00 mm  (hardware/display/dimensions.png)
@@ -54,56 +54,57 @@
 //
 // Birdbath optics (replaces both the old single curved meniscus combiner
 // AND the earlier two-hit-same-panel birdbath):
-//   Beamsplitter: flat 30/70 reflective sheet, bs_w x bs_h, FIXED 45°
-//                 relay near the display — redirects the vertical beam to
-//                 exactly horizontal, nothing more.
-//   Combiner:     curved partial mirror, mirror_w x mirror_h, single
-//                 cylindrical curvature mirror_R, FIXED VERTICAL
-//                 (combiner_tilt = 90°) — the element the eye actually
-//                 looks through, both for the real target and the
-//                 reflected reticle.
+//   Beamsplitter: flat 30/70 reflective sheet, beamsplitter_optic_width x
+//                 beamsplitter_optic_height, FIXED 45° relay near the
+//                 display — redirects the vertical beam to exactly
+//                 horizontal, nothing more.
+//   Combiner:     curved partial mirror, combiner_optic_width x
+//                 combiner_optic_height, single cylindrical curvature
+//                 combiner_radius, FIXED VERTICAL (combiner_tilt = 90°) —
+//                 the element the eye actually looks through, both for the
+//                 real target and the reflected reticle.
 //   See the "Birdbath optics" parameter block for the full derivation.
 // ============================================================
 
 // ┌─────────────────────────────────────────────────────────────┐
-// │  angle = beamsplitter tilt from horizontal — FIXED at 45°.   │
-// │  combiner_tilt = combiner tilt — FIXED at 90° (vertical).    │
-// │  Both are pinned per explicit design decision (topology "c") │
-// │  — NOT reprint-tunable sweep parameters any more.  Changing  │
-// │  either invalidates the whole fold derivation below.         │
+// │  beamsplitter_tilt = beamsplitter tilt from horizontal —      │
+// │  FIXED at 45°.  combiner_tilt = combiner tilt — FIXED at 90°  │
+// │  (vertical).  Both are pinned per explicit design decision    │
+// │  (topology "c") — NOT reprint-tunable sweep parameters any    │
+// │  more.  Changing either invalidates the whole fold derivation │
+// │  below.                                                       │
 // └─────────────────────────────────────────────────────────────┘
 use <picatinny.scad>
+use <screw_mounts.scad>
 
-angle = 45; // degrees — FIXED, do not sweep (was 35–65 in the rejected topology)
+beamsplitter_tilt = 45; // beamsplitter tilt from horizontal, deg — FIXED, do not sweep (was 35–65 in the rejected topology)
 
 // Which piece to render/export: "both" (assembled), "top", "bottom",
 // "bar" (removable Picatinny clamp jaw), "lid" (box top lid)
-part = "both";
+render_part = "both";
 
 // Forward electronics box (extends from the optics head toward the muzzle).
-box_len = 80.00; // box length, front-to-rear (8 cm)
+box_length = 80.00; // box length, front-to-rear (8 cm)
 
-// ── Display ──────────────────────────────────────────────────
-disp_pcb_w = 42.20;
-disp_pcb_h = 29.00;
-disp_pcb_t = 1.60;
-disp_active_w = 38.00;
-disp_active_h = 24.80;
-disp_hole_d = 2.10; // PCB clearance-hole dia (datasheet); not used for body bores
-disp_hole_off_x = 2.25;
-disp_hole_off_y = 2.10;
+// ── Display (Waveshare 1.27" SSD1351 OLED) ───────────────────
+display_pcb_width = 42.20; // OLED carrier PCB width  (X)
+display_pcb_height = 29.00; // OLED carrier PCB height (Y)
+display_pcb_thickness = 1.80; // OLED carrier PCB thickness (Z)
+display_active_width = 38.00; // visible/active screen width  (X)
+display_active_height = 24.80; // visible/active screen height (Y)
+display_hole_dia = 2.10; // PCB clearance-hole dia (datasheet); not used for body bores
+display_hole_inset_x = 2.25; // mounting-hole inset from the PCB edge, X
+display_hole_inset_y = 2.10; // mounting-hole inset from the PCB edge, Y
+display_fit_clearance = 0.10; // gap on EVERY side of the OLED PCB in its pocket (X/Y edges + Z floor)
 
 // ── Fasteners ────────────────────────────────────────────────
-// PCB is retained by M2 screws from the top, threading into brass
-// heat-set inserts pressed into the body below the PCB pocket.
-insert_d = 3.20; // M2 heat-set insert outer diameter (bore)
-insert_depth = 4.00; // insert length / bore depth
-
-// Part-joining M3 screws — 4 horizontal, in the left/right edges, low
-// (under the PCB) so the inserts land in the solid lower body.
-join_clear_d = 3.40; // M3 clearance hole through the top-part skirt
-join_insert_d = 4.00; // M3 heat-set insert outer dia (bore in bottom)
-join_insert_depth = 5.00; // insert length / bore depth
+// All screw/insert geometry now comes from screw_mounts.scad — its
+// insert_hole()/screw_hole() cutters plus the shared M2/M3 fastener table
+// are the single source of truth (no local diameter/depth constants).
+//   PCB        : M2, screw from the top into inserts below the pocket.
+//   Part joint : M3, 4 horizontal screws through the skirts into edge inserts.
+//   Box lid    : M3, 4 vertical screws through the lid into boss inserts.
+m3_clearance_fit = 0.40; // added to the M3 body dia for a free-fit through-hole (skirts + lid)
 
 // ── Birdbath optics ─────────────────────────────────────────────
 // True two-element birdbath, EACH ELEMENT HIT EXACTLY ONCE (topology "c" —
@@ -116,12 +117,14 @@ join_insert_depth = 5.00; // insert length / bore depth
 //   -> eye, looking back THROUGH the combiner's see-through window.
 //
 // Fold derivation (2D ray trace in the Y-Z plane; X is irrelevant, both
-// tilts are fixed rotations about X exactly like `angle` always was):
+// tilts are fixed rotations about X exactly like `beamsplitter_tilt` always
+// was):
 //   v_in = (0,1)                       ray leaves display straight up
 //   45 deg mirror swaps (a,b) -> (b,a):
 //   v_out1 = (1,0)                     EXACTLY horizontal after the
 //                                       beamsplitter — no residual tilt,
-//                                       because angle is fixed at 45
+//                                       because beamsplitter_tilt is fixed
+//                                       at 45
 //   travels at constant Z to the vertical combiner, normal n = (-1,0):
 //   v_out2 = v_out1 - 2*(v_out1.n)*n
 //          = (-1,0)                    EXACT reversal, same Z — the
@@ -129,222 +132,244 @@ join_insert_depth = 5.00; // insert length / bore depth
 //                                       beamsplitter's own position
 //                                       (mostly transmissive) heading
 //                                       dead level to the eye, by
-//                                       construction, for any gap1/
-//                                       horiz_throw (the tilts alone
-//                                       fix the direction; the spacings
-//                                       only set WHERE, not which way)
+//                                       construction, for any gap/throw
+//                                       (the tilts alone fix the
+//                                       direction; the spacings only set
+//                                       WHERE, not which way)
 //
-// gap1/horiz_throw are design constants (display-to-beamsplitter,
-// vertical, and beamsplitter-to-combiner, horizontal); everything else
-// below is derived from them, same pattern as the old glass_cz/glass_cy/
-// frame_dy block.
+// display_to_beamsplitter_gap / beamsplitter_to_combiner_throw are design
+// constants (display-to-beamsplitter, vertical, and beamsplitter-to-
+// combiner, horizontal); everything else below is derived from them, same
+// pattern as the old glass_cz/glass_cy/frame_dy block.
 //
-// gap1 grew from the old topology's 13 mm to 30 mm: at the fixed 45 deg
-// beamsplitter tilt, the frame's own half-diagonal projects 14.85 mm in
-// both Y and Z ((bs_frame_y/2 + bs_frame_z/2... no: (3.5+17.5)*cos(45) =
-// 14.85, i.e. half bs_frame_y + half bs_frame_z, projected).  The
-// combiner, now UNTILTED (vertical, axis-aligned bounding box, no
-// diagonal projection), has half-height mirror_frame_z/2 = 18.5 mm
-// (unaffected by mirror_R) — THIS is the real binding constraint on
-// gap1: need (body_height+gap1) - 18.5 >= box_wall_top(27.5) + margin,
-// i.e. gap1 >= 26 + margin.  gap1 = 30 gives combiner's lowest Z = 31.5,
-// a 4.0 mm margin over box_wall_top — verified numerically.
-gap1 = 30.00; // display centre -> beamsplitter centre, vertical
-horiz_throw = 30.00; // beamsplitter centre -> combiner centre, horizontal (+Y)
-mirror_f = gap1 + horiz_throw; // unfolded optical path length (60.0)
-mirror_R = 2 * mirror_f; // paraxial radius of curvature (single-axis/cylindrical) (120.0)
-combiner_tilt = 90; // degrees — FIXED, vertical (replaces the old derived mirror_tilt)
+// display_to_beamsplitter_gap grew from the old topology's 13 mm to 30 mm:
+// at the fixed 45 deg beamsplitter tilt, the frame's own half-diagonal
+// projects 14.85 mm in both Y and Z ((3.5+17.5)*cos(45) = 14.85, i.e. half
+// beamsplitter_frame_depth + half beamsplitter_frame_height, projected).
+// The combiner, now UNTILTED (vertical, axis-aligned bounding box, no
+// diagonal projection), has half-height combiner_frame_height/2 = 18.5 mm
+// (unaffected by combiner_radius) — THIS is the real binding constraint on
+// the gap: need (body_height+gap) - 18.5 >= box_wall_top_z(27.5) + margin,
+// i.e. gap >= 26 + margin.  gap = 30 gives combiner's lowest Z = 31.5, a
+// 4.0 mm margin over box_wall_top_z — verified numerically.
+display_to_beamsplitter_gap = 30.00; // display centre -> beamsplitter centre, vertical
+beamsplitter_to_combiner_throw = 30.00; // beamsplitter centre -> combiner centre, horizontal (+Y)
+combiner_focal_length = display_to_beamsplitter_gap + beamsplitter_to_combiner_throw; // unfolded optical path length (60.0)
+combiner_radius = 2 * combiner_focal_length; // paraxial radius of curvature (single-axis/cylindrical) (120.0)
+combiner_tilt = 90; // combiner tilt from horizontal, deg — FIXED, vertical (replaces the old derived mirror_tilt)
 
-// Beamsplitter (flat 30/70 sheet) — plain rectangle, no arc caps.
-bs_w = 32.00; // panel width across X
-bs_h = 30.00; // panel height along the tilt direction (must clear the hit point)
-bs_t = 2.00; // sheet thickness
-bs_lip = 2.00; // retaining lip width around the see-through window
+// Beamsplitter (flat 30/70 sheet) — plain rectangle, no arc caps.  The
+// *_optic_* dims are the OPTIC (sheet) size; the holder adds
+// beamsplitter_frame_border of frame on every side (see
+// beamsplitter_frame()).  This makes the splitter LARGER than the old
+// design, where the sheet was only width - 2*wall (27 mm) after a chunky
+// 4.5 mm (wall+lip) border ate into it.
+beamsplitter_optic_width = 32.00; // sheet width across X (clear optic)
+beamsplitter_optic_height = 30.00; // sheet height along the tilt direction (clear optic)
+beamsplitter_thickness = 2.00; // sheet thickness
+beamsplitter_frame_border = 2.00; // holder frame border on ALL sides (replaces wall+lip = 4.5)
+beamsplitter_rear_lip = 1.50; // rear retaining-lip overlap onto the sheet (does NOT add to the front/side border)
 
 // Combiner (curved partial-mirror reflector) — single-axis cylindrical
-// curvature mirror_R, spanning mirror_w x mirror_h.  Sagitta over
-// mirror_h is ~1.1 mm at the values above (mirror_R grew to 120 in this
-// topology, so the curve is shallower than the old design's ~2.5 mm) —
-// the existing arc-cap Boolean technique still transfers directly
-// (cylinder ∩ bounding box).  Internal names keep the "mirror_*" prefix
-// for continuity even though the user-facing optical role is now a
-// PARTIAL ("combiner") mirror — see mirror_frame()'s header comment.
-mirror_w = 32.00; // combiner width across X
-mirror_h = 32.00; // combiner height along the tilt direction
-mirror_t = 4.00; // backing thickness behind the reflective face (polished insert pocket)
-mirror_lip = 2.00; // retaining lip width around the reflective-insert / see-through window
+// curvature combiner_radius, spanning combiner_optic_width x
+// combiner_optic_height.  Sagitta over the height is ~1.1 mm at the values
+// above (combiner_radius grew to 120 in this topology, so the curve is
+// shallower than the old design's ~2.5 mm) — the existing arc-cap Boolean
+// technique still transfers directly (cylinder ∩ bounding box).
+combiner_optic_width = 32.00; // combiner clear width across X (optic)
+combiner_optic_height = 32.00; // combiner clear height along the tilt direction (optic)
+combiner_thickness = 4.00; // backing thickness behind the reflective face (polished insert pocket)
+combiner_frame_border = 2.00; // holder frame border on ALL sides — matches beamsplitter_frame_border (replaces wall+lip = 4.5)
+combiner_rear_lip = 1.50; // rear retaining-lip overlap onto the insert (does NOT add to the front/side border)
 
 // Reference dimensions for clearance checks only — NOT cut/printed geometry.
 eye_relief = 50.00; // eye -> combiner hit point, along the level exit ray
 exit_pupil = 8.00; // nominal exit pupil diameter, for sightline-cone checks
 
 // ── Structure ────────────────────────────────────────────────
-wall = 2.50;
+wall = 2.50; // generic wall / floor thickness for the screen body
 shroud_wall = 3.00; // EOTech shroud wall / hood thickness (front/rear, hood)
 side_edge = 8.00; // THICK left/right edges (host the joint inserts)
-clearance = 0.30;
-body_height = 20.00; // must fit Arduino Nano + wiring
-lip_h = 10.00; // height of the FRONT lower lip on shroud
-rear_lip_h = 4.00; // height of the REAR lip (lowered for a clear sight picture)
-arm_overlap = 3.00; // how far side arms reach INTO the lens frame
+clearance = 0.30; // generic fit clearance for the optic pockets
+body_height = 20.00; // seam height; must fit Arduino Nano + wiring
+front_lip_height = 10.00; // height of the FRONT lower lip on the shroud
+rear_lip_height = 4.00; // height of the REAR lip (lowered for a clear sight picture)
+arm_overlap = 3.00; // how far the side arms reach INTO the optic frame
 
 // Side-wall lap joint
-lap_h = 14.00; // vertical overlap: skirt reaches this far below the seam
-skirt_t = 3.00; // skirt thickness (sits in a rebate on the bottom)
-joint_screw_z = 9.00; // height of the horizontal joint screws (under the PCB)
+lap_height = 14.00; // vertical overlap: skirt reaches this far below the seam
+skirt_thickness = 3.00; // skirt thickness (sits in a rebate on the bottom)
+joint_screw_height = 9.00; // height (Z) of the horizontal joint screws (under the PCB)
 
 // Forward electronics box (hollow, screw-on top lid)
 box_wall = 2.50; // box wall / floor thickness
-lid_t = 2.50; // top-lid thickness
-lid_fit = 0.20; // lid-to-pocket clearance
-box_boss_r = 4.50; // lid screw-boss radius (inside box corners)
-box_screw_clear = 3.40; // M3 lid-screw clearance (lid)
-box_head_d = 6.00; // M3 lid-screw head counterbore dia
-box_head_h = 3.00; // counterbore depth
-box_insert_d = 4.00; // M3 brass insert dia (box bosses)
-box_insert_depth = 5.00;
+lid_thickness = 2.50; // top-lid thickness
+lid_clearance = 0.20; // lid-to-pocket clearance
+box_boss_radius = 4.50; // lid screw-boss radius (inside box corners)
+// M3 lid screws (clearance + countersink in the lid, inserts in the bosses)
+// are cut by screw_mounts.scad — see box_lid() / box_lid_inserts().
 
 // Cable routing (channel under the PCB, plug opening at the box front)
-cable_w = 14.00; // under-PCB cable channel width
-cable_h = 7.00; // channel height
-cable_z = 9.00; // channel floor height (under the PCB pocket)
-plug_w = 14.00; // plug opening width  (box front face)
-plug_h = 9.00; // plug opening height
-plug_z = 8.00; // plug opening bottom z
+cable_channel_width = 14.00; // under-PCB cable channel width
+cable_channel_height = 7.00; // channel height
+cable_channel_floor_z = 9.00; // channel floor height (under the PCB pocket)
+plug_opening_width = 14.00; // plug opening width  (box front face)
+plug_opening_height = 9.00; // plug opening height
+plug_opening_floor_z = 8.00; // plug opening bottom z
 
 // Right-side engraving
-engrave = true; // set false to omit the engraved label
-engrave_text = "Exacto XM-1E0";
+// Version: XM-<gen>E<rev>. Bump the E<rev> ONLY after a revision is sent to
+// print (not on design edits). Current: XM-1E1.
+engrave_enabled = true; // set false to omit the engraved label
+engrave_text = "Exacto XM-1E1"; // the label text
 engrave_size = 6.00; // glyph size (mm)
 engrave_depth = 0.60; // how deep the text is cut into the face
-engrave_font = "Liberation Sans:style=Bold";
+engrave_font = "Liberation Sans:style=Bold"; // engraving typeface
 
-$fn = 48;
+$fn = 48; // default facet count for all curved surfaces
 
 // Forward box height — computed here (early) because the birdbath fold
-// geometry below (gated against box_wall_top, the real binding clearance
+// geometry below (gated against box_wall_top_z, the real binding clearance
 // constraint in this topology) needs it before the rest of the forward
-// box's geometry (which depends on body_d/box_len/body_w, computed later
-// in "Derived") is otherwise ready.
-box_h = body_height + lip_h; // 30.00, reaches the lens opening
-box_wall_top = box_h - lid_t; // 27.50, top of the box walls
+// box's geometry (which depends on body_depth/box_length/body_width,
+// computed later in "Derived") is otherwise ready.
+box_height = body_height + front_lip_height; // 30.00, reaches the lens opening
+box_wall_top_z = box_height - lid_thickness; // 27.50, top of the box walls
 
 // ── Derived ──────────────────────────────────────────────────
-body_w = disp_pcb_w + 2 * side_edge; // 58.20  (thick left/right edges)
-body_d = disp_pcb_h + 2 * wall; // 34.00
+body_width = display_pcb_width + 2 * side_edge; // 58.20  (thick left/right edges)
+body_depth = display_pcb_height + 2 * wall; // 34.00
 
-// Frame envelopes (pocket + wall) for each optic, same pattern as the old
-// frame_y/frame_z but one per element.  "_y" = depth along the optic's own
-// normal; "_z" = extent along the tilt direction (in-plane).
-bs_frame_y = bs_t + 2 * wall; //  7.00  beamsplitter frame depth
-bs_frame_z = bs_h + 2 * wall; // 35.00  beamsplitter frame height along tilt
+// Frame envelopes for each optic.  The optic (*_optic_width/height) is
+// wrapped by a uniform *_frame_border (= 2 mm) on every side, so the OUTER
+// envelope = optic + 2*border in plane, and the depth = sheet/insert pocket
+// + one border backing wall.  "_width" = outer width across X; "_depth" =
+// depth along the optic normal; "_height" = outer extent along the tilt
+// direction (in-plane).
+beamsplitter_frame_width = beamsplitter_optic_width + 2 * beamsplitter_frame_border; // 36.00  outer width (X)
+beamsplitter_frame_depth = (beamsplitter_thickness + clearance) + beamsplitter_frame_border; // 4.30  sheet pocket + 2 mm backing
+beamsplitter_frame_height = beamsplitter_optic_height + 2 * beamsplitter_frame_border; // 34.00  outer height along tilt
 
-// Mirror sagitta over its curved (mirror_w) axis — the curved pocket eats
-// extra depth at the vertex, so mirror_frame_y must include it on top of
-// the usual wall + insert-pocket allowance, or the backing wall behind
-// the deepest point of the pocket would be thinner than `wall`.
-mirror_sagitta = mirror_R - sqrt(mirror_R * mirror_R - (mirror_w / 2) * (mirror_w / 2)); // ~2.52 mm
-mirror_frame_y = wall + (mirror_t + clearance) + mirror_sagitta + wall; // ~11.52  mirror frame depth
-mirror_frame_z = mirror_h + 2 * wall; // 37.00  mirror frame height along tilt
+// Combiner sagitta over its curved (width) axis — the curved pocket eats
+// extra depth at the vertex, so combiner_frame_depth must include it on top
+// of the insert pocket + one border backing, or the backing wall behind the
+// deepest point of the pocket would be thinner than the 2 mm border.
+combiner_sagitta = combiner_radius - sqrt(combiner_radius * combiner_radius - (combiner_optic_width / 2) * (combiner_optic_width / 2)); // ~1.07 mm
+combiner_frame_width = combiner_optic_width + 2 * combiner_frame_border; // 36.00  outer width (X)
+combiner_frame_depth = (combiner_thickness + clearance) + combiner_sagitta + combiner_frame_border; // ~7.37  insert pocket + curve + 2 mm backing
+combiner_frame_height = combiner_optic_height + 2 * combiner_frame_border; // 36.00  outer height along tilt
 
 // World-space fold geometry (Y,Z), derived directly from the verified
-// formulas above.  X stays centred on body_w/2 for both optics, exactly
-// like the display's active area is centred on body_w/2.
-//   P1 = beamsplitter optical centroid (display's chief ray travels
-//        straight up from the display centre, so P1 sits directly above
-//        it by gap1).
-//   P2 = combiner centroid = P1 + horiz_throw, SAME Z as P1 (the
-//        beamsplitter-to-combiner leg is exactly horizontal by
-//        construction — see the ray-trace above).
-// There is no P3 in this topology: each element is hit exactly once, so
-// the beamsplitter's centroid IS P1 (no more P1/P3-midpoint placement)
-// and the combiner's centroid IS P2 (no more "mirror vertex offset from
-// frame centre" — the combiner is untilted, so its own geometric centre
-// sits on the fold axis directly).
-disp_center_y = body_d / 2; // display active area is centred on body_d (==17.0)
+// formulas above.  X stays centred on body_width/2 for both optics, exactly
+// like the display's active area is centred on body_width/2.
+//   beamsplitter_center = beamsplitter centroid.  Placed in Y so the
+//        SHEET's (optic, not the printed frame) FORWARD-MOST edge — its
+//        front face at the sheet's bottom edge, at the fixed 45 deg tilt —
+//        lands exactly on the OLED active area's front edge, per explicit
+//        design request.  Consequence: the chief ray rising from the
+//        display centre meets the beamsplitter slightly off its centroid,
+//        so the relayed image sits a touch off on the combiner (well within
+//        the combiner aperture); the reflected leg is still EXACTLY
+//        horizontal — the 45 deg tilt alone fixes the direction,
+//        independent of where on the panel the ray lands.  Z is
+//        body_height + display_to_beamsplitter_gap.
+//   combiner_center = combiner centroid = beamsplitter_center +
+//        beamsplitter_to_combiner_throw, SAME Z (the beamsplitter-to-
+//        combiner leg is exactly horizontal by construction — see the
+//        ray-trace above).
+// There is no third point in this topology: each element is hit exactly
+// once, so the beamsplitter's centroid IS its placement point (no
+// midpoint placement) and the combiner's centroid IS its placement point
+// (no "mirror vertex offset from frame centre" — the combiner is untilted,
+// so its own geometric centre sits on the fold axis directly).
+display_active_front_y = wall + (display_pcb_height + display_active_height) / 2; // 29.40 — OLED active-area FRONT edge (+Y)
+// Forward-most corner of the beamsplitter FRAME (printed envelope),
+// projected from its centroid along +Y at the fixed tilt — used for shroud /
+// rear-extension sizing (mirror of beamsplitter_rear_y's formula below).
+beamsplitter_frame_front_proj = (beamsplitter_frame_depth / 2) * sin(beamsplitter_tilt) + (beamsplitter_frame_height / 2) * cos(beamsplitter_tilt);
+// Forward-most edge of the OPTIC (sheet) itself: its front face (local +Y,
+// flush with the frame front, so half-extent beamsplitter_frame_depth/2) at
+// the sheet's bottom edge (sheet is inset beamsplitter_frame_border from the
+// frame Z edges, so its half-extent along Z is exactly the optic height/2).
+// THIS is what aligns to the display.
+beamsplitter_optic_front_proj = (beamsplitter_frame_depth / 2) * sin(beamsplitter_tilt) + (beamsplitter_optic_height / 2) * cos(beamsplitter_tilt);
 
-p1_y = disp_center_y; // 17.00
-p1_z = body_height + gap1; // 50.00
-p2_y = p1_y + horiz_throw; // 47.00
-p2_z = p1_z; // 50.00 — same height as the beamsplitter, exact (level leg)
+beamsplitter_center_y = display_active_front_y - beamsplitter_optic_front_proj; // places the SHEET's front edge ON the active front edge
+beamsplitter_center_z = body_height + display_to_beamsplitter_gap; // 50.00
+combiner_center_y = beamsplitter_center_y + beamsplitter_to_combiner_throw; // 47.00
+combiner_center_z = beamsplitter_center_z; // 50.00 — same height as the beamsplitter, exact (level leg)
 
-// Beamsplitter frame centres directly on P1 — no offset, since it's hit
-// only once now.
-bs_cy = p1_y;
-bs_cz = p1_z;
+// Mechanical clearance checks (same pattern as the old margin checks, but
+// against box_wall_top_z — the real binding constraint in this topology,
+// since both frames sit well above body_height and the forward box's top is
+// the thing they actually have to clear).  Both must stay positive; if a
+// future change to the gap/throw/tilt drives either negative, increase the
+// gap.
+beamsplitter_lowest_z = beamsplitter_center_z - (beamsplitter_frame_depth / 2 * cos(beamsplitter_tilt) + beamsplitter_frame_height / 2 * sin(beamsplitter_tilt));
+beamsplitter_clearance_margin = beamsplitter_lowest_z - box_wall_top_z; // ~7.65 mm at the default values
 
-// Combiner frame centres directly on P2.
-mirror_cy = p2_y;
-mirror_cz = p2_z;
-
-// Mechanical clearance checks (same pattern as the old bs_clearance_margin,
-// but against box_wall_top — the real binding constraint in this topology,
-// since both frames sit well above body_height and the forward box's top
-// is the thing they actually have to clear).  Both must stay positive; if
-// a future change to gap1/horiz_throw/angle drives either negative,
-// increase gap1.
-bs_lowest_z = bs_cz - (bs_frame_y / 2 * cos(angle) + bs_frame_z / 2 * sin(angle));
-bs_clearance_margin = bs_lowest_z - box_wall_top; // ~7.65 mm at the default values
-
-mirror_lowest_z = mirror_cz - mirror_frame_z / 2; // combiner untilted: axis-aligned box
-mirror_clearance_margin = mirror_lowest_z - box_wall_top; // ~4.0 mm at the default values
+combiner_lowest_z = combiner_center_z - combiner_frame_height / 2; // combiner untilted: axis-aligned box
+combiner_clearance_margin = combiner_lowest_z - box_wall_top_z; // ~4.0 mm at the default values
 
 // Eye reference point (clearance checks only, not a printed feature) —
-// directly behind P2 at the SAME height, since the return leg through the
-// combiner and back out past the beamsplitter is exactly level.
-eye_y = p2_y - eye_relief;
-eye_z = p2_z;
+// directly behind the combiner at the SAME height, since the return leg
+// through the combiner and back out past the beamsplitter is exactly level.
+eye_point_y = combiner_center_y - eye_relief;
+eye_point_z = combiner_center_z;
 
 // Shroud height — auto-sized to enclose BOTH frames at their respective
-// tilts (combiner tips higher than the beamsplitter at the default
+// tilts (the combiner tips higher than the beamsplitter at the default
 // values, since it's the taller untilted box riding higher up).
-bs_tip_z = bs_cz + (bs_frame_z / 2) * sin(angle) + (bs_frame_y / 2) * cos(angle);
-mirror_tip_z = mirror_cz + mirror_frame_z / 2; // combiner untilted: axis-aligned box
-optics_tip_z = max(bs_tip_z, mirror_tip_z);
-shroud_h = optics_tip_z - body_height + shroud_wall + 4;
+beamsplitter_top_z = beamsplitter_center_z + (beamsplitter_frame_height / 2) * sin(beamsplitter_tilt) + (beamsplitter_frame_depth / 2) * cos(beamsplitter_tilt);
+combiner_top_z = combiner_center_z + combiner_frame_height / 2; // combiner untilted: axis-aligned box
+optics_top_z = max(beamsplitter_top_z, combiner_top_z);
+shroud_height = optics_top_z - body_height + shroud_wall + 4;
 
 // Rear extension — closed-form rearmost (most -Y) corner of the
-// BEAMSPLITTER frame (tilted `angle`, centred at bs_cy/bs_cz).  In this
-// topology the beamsplitter is the element nearest the display/rear, so
-// it (not the combiner) is the one that could in principle swing behind
-// Y=0 at a steep enough tilt.  At the fixed 45 deg default this evaluates
-// to a positive rearmost Y (2.15 mm), so rear_ext is dormant (0) — kept as
-// a live formula, not deleted, since it's not provably unnecessary for
-// all future parameter choices.
-bs_rear_y = bs_cy - bs_frame_y / 2 * sin(angle) - bs_frame_z / 2 * cos(angle);
-rear_ext = max(0, -bs_rear_y + 2.0);
+// BEAMSPLITTER frame (tilted, centred at beamsplitter_center_y/_z).  In this
+// topology the beamsplitter is the element nearest the display/rear, so it
+// (not the combiner) is the one that could in principle swing behind Y=0 at
+// a steep enough tilt.  At the fixed 45 deg default this evaluates to a
+// positive rearmost Y (2.15 mm), so rear_extension is dormant (0) — kept as
+// a live formula, not deleted, since it's not provably unnecessary for all
+// future parameter choices.
+beamsplitter_rear_y = beamsplitter_center_y - beamsplitter_frame_front_proj; // rear-most FRAME corner: mirror of the forward-most about the centroid
+rear_extension = max(0, -beamsplitter_rear_y + 2.0);
 
-// Front extension — the combiner, pushed forward by horiz_throw and now
-// untilted (full mirror_frame_y depth projects straight along +Y, no
-// foreshortening), can land its forward-most corner past the body's own
-// front face (body_d).  Closed-form forward-most corner of the combiner
-// frame box (untilted, centred at mirror_cy/mirror_cz):
-mirror_front_y = mirror_cy + mirror_frame_y / 2;
-// Extend the top part's side walls/hood FORWARD (in the upper region only
-// — gated above box_wall_top, since both optics frames sit well above it
+// Front extension — the combiner, pushed forward by
+// beamsplitter_to_combiner_throw and now untilted (full combiner_frame_depth
+// projects straight along +Y, no foreshortening), can land its forward-most
+// corner past the body's own front face (body_depth).  Closed-form
+// forward-most corner of the combiner frame box (untilted, centred at
+// combiner_center_y/_z):
+combiner_front_y = combiner_center_y + combiner_frame_depth / 2;
+// Extend the top part's side walls/hood FORWARD (in the upper region only —
+// gated above box_wall_top_z, since both optics frames sit well above it
 // everywhere in the extended region) far enough to fully enclose that
 // corner, plus a small margin.
-front_ext = max(0, mirror_front_y - body_d + 2.0);
+front_extension = max(0, combiner_front_y - body_depth + 2.0);
 
 // Y positions of the 4 side joint screws (2 per side).
-side_screw_y = [body_d * 0.28, body_d * 0.72];
+joint_screw_y = [body_depth * 0.28, body_depth * 0.72];
 
-// Forward box geometry.  Box spans Y = body_d .. box_y1, sitting in front
-// of the optics head; its top reaches the lens-opening bottom (lip top).
-// (box_h/box_wall_top are computed earlier now — see above "Derived".)
-box_y0 = body_d; // box back (joins the optics head)
-box_y1 = body_d + box_len; // box front (muzzle end)
-// Lid screw-boss positions (the 4 inside box corners).  Pulled 2 mm toward
-// the corners so the bosses MERGE into the walls (no tangent line contact).
-box_screw_x = [box_wall + box_boss_r - 2, body_w - box_wall - box_boss_r + 2];
-box_screw_y = [box_y0 + box_wall + box_boss_r - 2, box_y1 - box_wall - box_boss_r + 2];
+// Forward box geometry.  Box spans Y = body_depth .. box_front_y, sitting in
+// front of the optics head; its top reaches the lens-opening bottom (lip
+// top).  (box_height/box_wall_top_z are computed earlier now — see above
+// "Derived".)
+box_back_y = body_depth; // box back (joins the optics head)
+box_front_y = body_depth + box_length; // box front (muzzle end)
+// Lid screw-boss positions.  FRONT (muzzle-end) corners only — the rear pair
+// of mounting screws was removed.  Pulled 2 mm toward the corners so the
+// bosses MERGE into the walls (no tangent line contact).
+lid_screw_x = [box_wall + box_boss_radius - 2, body_width - box_wall - box_boss_radius + 2];
+lid_screw_y = [box_front_y - box_wall - box_boss_radius + 2];
 
 // Picatinny rail runs the WHOLE length of the sight (optics head + box).
-rail_len = body_d + box_len;
+rail_length = body_depth + box_length;
 
 // Engraving placement: centred along the box, a little above its mid-height.
-engrave_y = (box_y0 + box_y1) / 2;
-engrave_z = box_wall_top * 0.55;
+engrave_center_y = (box_back_y + box_front_y) / 2;
+engrave_center_z = box_wall_top_z * 0.55;
 
 // ============================================================
 
@@ -357,49 +382,53 @@ module rounded_box(w, d, h, r = 2) {
 // Optics-only housing: OLED PCB sits in a top pocket; all other
 // electronics (MCU, battery, USB) live in a separate external box
 // connected through the rear ribbon-cable slot.
-// Display window faces UP (+Z).  Y=0 = rear, Y=body_d = front.
+// Display window faces UP (+Z).  Y=0 = rear, Y=body_depth = front.
 module screen_body() {
   difference() {
-    rounded_box(body_w, body_d, body_height);
+    rounded_box(body_width, body_depth, body_height);
 
-    // PCB pocket — clearance/2 on every side so PCB drops in freely
+    // PCB pocket — display_fit_clearance (0.1 mm) gap on every side so the
+    // OLED drops in freely: 0.1 mm at each X/Y edge and 0.1 mm under the PCB
+    // (Z floor).
     translate(
       [
-        side_edge - clearance / 2,
-        wall - clearance / 2,
-        body_height - disp_pcb_t - clearance,
+        side_edge - display_fit_clearance,
+        wall - display_fit_clearance,
+        body_height - display_pcb_thickness - display_fit_clearance,
       ]
     )
       cube(
         [
-          disp_pcb_w + clearance,
-          disp_pcb_h + clearance,
-          disp_pcb_t + clearance + 0.1,
+          display_pcb_width + 2 * display_fit_clearance,
+          display_pcb_height + 2 * display_fit_clearance,
+          display_pcb_thickness + display_fit_clearance + 0.1,
         ]
       );
 
     // Active-area window in top face
     translate(
       [
-        side_edge + (disp_pcb_w - disp_active_w) / 2,
-        wall + (disp_pcb_h - disp_active_h) / 2,
+        side_edge + (display_pcb_width - display_active_width) / 2,
+        wall + (display_pcb_height - display_active_height) / 2,
         body_height - wall,
       ]
     )
-      cube([disp_active_w, disp_active_h, wall + 0.2]);
+      cube([display_active_width, display_active_height, wall + 0.2]);
 
-    // PCB mount: heat-set insert bores below the PCB pocket floor.
+    // PCB mount: M2 heat-set insert bores below the PCB pocket floor.
     // M2 screws drop through the PCB corner holes from above and thread
-    // into brass inserts pressed up into these bores.
+    // into brass inserts pressed up into these bores.  The cutter's mouth
+    // sits on the pocket floor and bores downward (insert pressed in from +Z),
+    // matching insert_hole()'s convention exactly.
     for (sx = [-1, 1], sy = [-1, 1])
       translate(
         [
-          side_edge + disp_pcb_w / 2 + sx * (disp_pcb_w / 2 - disp_hole_off_x),
-          wall + disp_pcb_h / 2 + sy * (disp_pcb_h / 2 - disp_hole_off_y),
-          body_height - disp_pcb_t - clearance - insert_depth,
+          side_edge + display_pcb_width / 2 + sx * (display_pcb_width / 2 - display_hole_inset_x),
+          wall + display_pcb_height / 2 + sy * (display_pcb_height / 2 - display_hole_inset_y),
+          body_height - display_pcb_thickness - display_fit_clearance,
         ]
       )
-        cylinder(d=insert_d, h=insert_depth + 0.1);
+        insert_hole("M2");
 
     // Cable exits FORWARD now (see cable_channel()); no rear slot.
   }
@@ -410,178 +439,171 @@ module screen_body() {
 // solid top hood bar, short front/rear lower lips.  Sized to enclose
 // BOTH the beamsplitter and combiner frames at their respective tilts.
 // The centre opening (the combiner's own see-through window, and the
-// rear face BELOW rear_lip_h) is left open for viewing; rear_ext (above
-// rear_lip_h) and front_ext (above box_wall_top) extend the side walls/
-// hood, in their respective directions, far enough to fully enclose
-// whichever frame corner lands outside the body's own footprint —
-// rear_ext for the beamsplitter (rear/upper), front_ext for the combiner
-// (forward/upper).  At the default fixed angle/combiner_tilt, rear_ext
-// is dormant (0) and front_ext is the dominant extension.
+// rear face BELOW rear_lip_height) is left open for viewing;
+// rear_extension (above rear_lip_height) and front_extension (above
+// box_wall_top_z) extend the side walls/hood, in their respective
+// directions, far enough to fully enclose whichever frame corner lands
+// outside the body's own footprint — rear_extension for the beamsplitter
+// (rear/upper), front_extension for the combiner (forward/upper).  At the
+// default fixed tilts, rear_extension is dormant (0) and front_extension is
+// the dominant extension.
 module eotech_shroud() {
-  se = side_edge;
-  sw = shroud_wall;
-  bh = body_height;
-  bw = body_w;
-  bd = body_d;
-  sh = shroud_h;
-  re = rear_ext; // how far the upper rear region extends behind Y=0
-  fe = front_ext; // how far the upper front region extends past body_d
-  bwt = box_wall_top; // gate height for the forward extension (27.5)
-
-  // Left/right side walls (thick edges, full height).  Extended backward
-  // by rear_ext ONLY above rear_lip_h, so the existing lower rear sight
-  // window (Y=0 face, below rear_lip_h) is untouched.  Also extended
-  // FORWARD by front_ext, gated above box_wall_top instead (both optics
-  // frames sit well above box_wall_top everywhere in the extended
-  // region, so there is no separate lower-front-lip carve-out needed
-  // the way there is at the rear).  One continuous run from Y = -re to
-  // Y = bd + fe, no seam wall needed at Y = bd.
-  translate([0, -re, bh + rear_lip_h])
-    cube([se, (bd + fe) - (-re), sh - rear_lip_h]);
-  translate([bw - se, -re, bh + rear_lip_h])
-    cube([se, (bd + fe) - (-re), sh - rear_lip_h]);
+  // Left/right side walls (thick edges, full height).  Extended backward by
+  // rear_extension ONLY above rear_lip_height, so the existing lower rear
+  // sight window (Y=0 face, below rear_lip_height) is untouched.  Also
+  // extended FORWARD by front_extension, gated above box_wall_top_z instead
+  // (both optics frames sit well above box_wall_top_z everywhere in the
+  // extended region, so there is no separate lower-front-lip carve-out
+  // needed the way there is at the rear).  One continuous run from
+  // Y = -rear_extension to Y = body_depth + front_extension, no seam wall
+  // needed at Y = body_depth.
+  translate([0, -rear_extension, body_height + rear_lip_height])
+    cube([side_edge, (body_depth + front_extension) - ( -rear_extension), shroud_height - rear_lip_height]);
+  translate([body_width - side_edge, -rear_extension, body_height + rear_lip_height])
+    cube([side_edge, (body_depth + front_extension) - ( -rear_extension), shroud_height - rear_lip_height]);
   // Lower portion of the side walls (Y >= 0, same as before) — keeps the
-  // rear sight window open below rear_lip_h.
-  translate([0, 0, bh])
-    cube([se, bd, rear_lip_h]);
-  translate([bw - se, 0, bh])
-    cube([se, bd, rear_lip_h]);
+  // rear sight window open below rear_lip_height.
+  translate([0, 0, body_height])
+    cube([side_edge, body_depth, rear_lip_height]);
+  translate([body_width - side_edge, 0, body_height])
+    cube([side_edge, body_depth, rear_lip_height]);
 
   // Left/right skirts — drop below the seam to lap the bottom part's
   // rebated side faces; the horizontal joint screws pass through these.
-  translate([0, 0, bh - lap_h])
-    cube([skirt_t, bd, lap_h]);
-  translate([bw - skirt_t, 0, bh - lap_h])
-    cube([skirt_t, bd, lap_h]);
+  translate([0, 0, body_height - lap_height])
+    cube([skirt_thickness, body_depth, lap_height]);
+  translate([body_width - skirt_thickness, 0, body_height - lap_height])
+    cube([skirt_thickness, body_depth, lap_height]);
 
-  // Top hood bar (full width), extended backward by rear_ext AND forward
-  // by front_ext — one continuous run roofing both the beamsplitter
-  // (rear) and the combiner (forward).
-  translate([0, -re, bh + sh - sw])
-    cube([bw, (bd + fe) - (-re), sw]);
+  // Top hood bar (full width), extended backward by rear_extension AND
+  // forward by front_extension — one continuous run roofing both the
+  // beamsplitter (rear) and the combiner (forward).
+  translate([0, -rear_extension, body_height + shroud_height - shroud_wall])
+    cube([body_width, (body_depth + front_extension) - ( -rear_extension), shroud_wall]);
 
   // Beamsplitter housing rear wall — closes off the back of the upper
   // rear region (no viewing window needed there; only the combiner's
   // window, further forward, is meant to be seen through).
-  translate([se, -re, bh + rear_lip_h])
-    cube([bw - 2 * se, sw, sh - rear_lip_h - sw]);
+  translate([side_edge, -rear_extension, body_height + rear_lip_height])
+    cube([body_width - 2 * side_edge, shroud_wall, front_lip_height]);
 
   // Rear lower lip (Y=0 face, between side walls) — lowered for sight picture
-  translate([se, 0, bh])
-    cube([bw - 2 * se, sw, rear_lip_h]);
+  translate([side_edge, 0, body_height])
+    cube([body_width - 2 * side_edge, shroud_wall, rear_lip_height]);
 
-  // Front lower lip (Y=body_d face, between side walls) — untouched: its
-  // Z range (bh..bh+lip_h = 20..30) and Y range (~31..34) never overlaps
-  // the combiner's see-through window (Y ~41.8..52.2), so it stays a
-  // plain low sill, NOT a closing wall across the combiner's aperture.
-  translate([se, bd - sw, bh])
-    cube([bw - 2 * se, sw, lip_h]);
+  // Front lower lip (Y=body_depth face, between side walls) — untouched: its
+  // Z range (body_height..body_height+front_lip_height = 20..30) and Y range
+  // (~31..34) never overlaps the combiner's see-through window (Y ~41.8..52.2),
+  // so it stays a plain low sill, NOT a closing wall across the combiner's
+  // aperture.
+  translate([side_edge, body_depth - shroud_wall, body_height])
+    cube([body_width - 2 * side_edge, shroud_wall, front_lip_height]);
 
   // NOTE: deliberately NO closing wall in front of the combiner (at
-  // Y = bd + fe) — the combiner's own see-through window is the
-  // requested "hole through the front."  Only the side walls/hood above
-  // wrap around and frame it; the front face stays open.
+  // Y = body_depth + front_extension) — the combiner's own see-through
+  // window is the requested "hole through the front."  Only the side
+  // walls/hood above wrap around and frame it; the front face stays open.
 }
 
 // ── Beamsplitter frame ───────────────────────────────────────
-// Flat 30/70 plate — much simpler than the old lens_frame(): a plain
-// rectangular pocket, angled slot, NO arc caps at all (the old lens
-// needed arc caps because it had curved/rounded ends; the beamsplitter
-// is a plain flat rectangle).  Local coords: X spans [0, bs_w] (panel
-// width), Y spans [0, bs_frame_y] (depth / panel normal), Z spans
-// [0, bs_frame_z] (panel height, along the tilt direction).
-// Sheet enters from the FRONT (+Y) face; the -Y side has the retaining
-// lip.  Held by friction fit plus adhesive — identical retention idiom
-// to the old lens.
+// Flat 30/70 plate — a plain rectangular pocket, NO arc caps.  A uniform
+// beamsplitter_frame_border (2 mm) border wraps the optic on every side, so
+// the OUTER block is beamsplitter_frame_width x _depth x _height.  Local
+// coords: X spans [0, width] (outer width), Y spans [0, depth] (depth /
+// panel normal), Z spans [0, height] (outer height, along the tilt
+// direction).  Sheet enters from the FRONT (+Y) face into a pocket inset
+// beamsplitter_frame_border on X/Z; a beamsplitter_rear_lip-wide rim on the
+// rear retains it.  Held by friction fit plus adhesive.
 module beamsplitter_frame() {
-  pkt = bs_t + clearance; // pocket depth (sheet thickness + clearance)
-  pky = bs_frame_y - pkt; // pocket starts here in local Y (entry at +Y face)
+  frame_border = beamsplitter_frame_border; // frame border, all sides
+  pocket_depth = beamsplitter_thickness + clearance; // pocket depth (sheet thickness + clearance)
 
   difference() {
     // outer shell — solid rectangular block
-    cube([bs_w, bs_frame_y, bs_frame_z]);
+    cube([beamsplitter_frame_width, beamsplitter_frame_depth, beamsplitter_frame_height]);
 
-    // sheet pocket — open at the +Y face, full width, inset by `wall` top/bottom
-    translate([wall, pky, wall])
-      cube([bs_w - 2 * wall, pkt + 0.1, bs_frame_z - 2 * wall]);
+    // sheet pocket — open at the +Y face, holds the optic sheet with a
+    // frame_border on all in-plane sides (clearance/2 extra so it drops in)
+    translate([frame_border - clearance / 2, beamsplitter_frame_depth - pocket_depth, frame_border - clearance / 2])
+      cube([beamsplitter_optic_width + clearance, pocket_depth + 0.1, beamsplitter_optic_height + clearance]);
 
     // see-through window — open through BOTH faces so you can look/bounce
-    // through the beamsplitter; a bs_lip-wide rim retains the sheet.
-    translate([wall + bs_lip, -0.1, wall + bs_lip])
-      cube([bs_w - 2 * (wall + bs_lip), bs_frame_y + 0.2, bs_frame_z - 2 * (wall + bs_lip)]);
+    // through the beamsplitter; inset beamsplitter_rear_lip past the sheet
+    // edge, so the rear rim laps the sheet by that lip while the front/side
+    // border stays frame_border.
+    translate([frame_border + beamsplitter_rear_lip, -0.1, frame_border + beamsplitter_rear_lip])
+      cube([beamsplitter_frame_width - 2 * (frame_border + beamsplitter_rear_lip), beamsplitter_frame_depth + 0.2, beamsplitter_frame_height - 2 * (frame_border + beamsplitter_rear_lip)]);
   }
 }
 
-// ── Combiner frame (internal name kept as "mirror_*" for continuity) ──
+// ── Combiner frame ───────────────────────────────────────────
 // Adapts the old lens_frame()'s arc-cap Boolean idiom (cylinder ∩/−
 // bounding box), but the curve is applied to the combiner's PARTIALLY
-// REFLECTIVE FACE (radius mirror_R, single-axis/cylindrical) instead of
-// to rounded end caps.  The curve runs along local X (mirror_w); the
-// pocket is flat (un-curved) along local Z (mirror_h) — i.e. the
+// REFLECTIVE FACE (radius combiner_radius, single-axis/cylindrical) instead
+// of to rounded end caps.  The curve runs along local X (combiner width);
+// the pocket is flat (un-curved) along local Z (combiner height) — i.e. the
 // reflective face is a cylindrical arc, not a sphere.
 //
-// This element is a PARTIAL mirror — unlike the old fully-opaque "mirror"
-// framing in the rejected topology, the eye looks straight THROUGH it
-// (both to see the real target and to see the reflected reticle), so it
-// MUST be see-through, the same way the beamsplitter is.  Two separate
-// cuts live in the same difference(): the curved insert pocket (below,
-// unchanged from the previous topology) for the polished/partially-
-// reflective coating/insert, open only at the +Y face; PLUS a straight
-// through-window spanning the full local-Y depth, mirroring
-// beamsplitter_frame()'s see-through window pattern exactly (same
-// `wall`/`_lip` inset idiom, just with mirror_w/mirror_lip/
-// mirror_frame_y/mirror_frame_z in place of the beamsplitter's
-// equivalents).  Since the through-window spans the FULL local-Y depth,
-// it naturally unions with (extends through) the curved pocket's own
-// empty space — no special interaction logic needed.  Result: a
-// mirror_lip-wide retaining rim around a window open from both faces,
-// with the curved reflective insert sitting in its own pocket nearer
-// the +Y face.
+// This element is a PARTIAL mirror — unlike the old fully-opaque mirror
+// framing in the rejected topology, the eye looks straight THROUGH it (both
+// to see the real target and to see the reflected reticle), so it MUST be
+// see-through, the same way the beamsplitter is.  Two separate cuts live in
+// the same difference(): the curved insert pocket (below) for the polished/
+// partially-reflective coating/insert, open only at the +Y face; PLUS a
+// straight through-window spanning the full local-Y depth, mirroring
+// beamsplitter_frame()'s see-through window pattern exactly (same border/lip
+// inset idiom, just with the combiner_* dims in place of the beamsplitter's
+// equivalents).  Since the through-window spans the FULL local-Y depth, it
+// naturally unions with (extends through) the curved pocket's own empty
+// space — no special interaction logic needed.  Result: a combiner_rear_lip-
+// wide retaining rim around a window open from both faces, with the curved
+// reflective insert sitting in its own pocket nearer the +Y face.
 //
 // Pocket geometry (standard concave-mirror parameterisation, vertex at
-// local X = mirror_w/2):
-//   back-wall Y(x) = Y_vertex + (mirror_R − sqrt(mirror_R² − (x−mirror_w/2)²))
-// so the CENTRE (x = mirror_w/2) is the deepest point (smallest Y,
-// vertex) and the EDGES are shallower by `mirror_sagitta`.  This profile
-// is the lower boundary of a cylinder (axis along X) of radius mirror_R
-// centred at (X = mirror_w/2, Y = Y_vertex + mirror_R); cutting
-// (front-face box) INTERSECTED WITH (that cylinder solid) leaves exactly
-// the curved pocket, open at +Y, with the deepest point at Y_vertex —
-// NOT a nested difference with an oversized "everything outside the
-// cylinder" box; that idiom was tried and discarded (it failed to cut
-// anything because the box ended up disjoint from the cylinder's
-// relevant range).
-module mirror_frame() {
-  pkt = mirror_t + clearance; // insert pocket depth at the EDGES (shallowest)
-  y_vertex = mirror_frame_y - pkt - mirror_sagitta; // deepest point of the pocket (centre)
-  y_axis = y_vertex + mirror_R; // cylinder axis Y position (pulled back -Y by mirror_R)
+// local X = combiner_optic_width/2):
+//   back-wall Y(x) = Y_vertex + (R − sqrt(R² − (x−width/2)²))
+// so the CENTRE (x = width/2) is the deepest point (smallest Y, vertex) and
+// the EDGES are shallower by combiner_sagitta.  This profile is the lower
+// boundary of a cylinder (axis along X) of radius combiner_radius centred at
+// (X = width/2, Y = Y_vertex + R); cutting (front-face box) INTERSECTED WITH
+// (that cylinder solid) leaves exactly the curved pocket, open at +Y, with
+// the deepest point at Y_vertex — NOT a nested difference with an oversized
+// "everything outside the cylinder" box; that idiom was tried and discarded
+// (it failed to cut anything because the box ended up disjoint from the
+// cylinder's relevant range).
+module combiner_frame() {
+  frame_border = combiner_frame_border; // frame border, all sides (matches the beamsplitter)
+  pocket_depth = combiner_thickness + clearance; // insert pocket depth at the EDGES (shallowest)
+  pocket_vertex_y = combiner_frame_depth - pocket_depth - combiner_sagitta; // deepest point of the pocket (centre)
+  cylinder_axis_y = pocket_vertex_y + combiner_radius; // cylinder axis Y position (pulled back -Y by combiner_radius)
 
   difference() {
     // ── outer shell ── plain rectangular block, same spirit as the
     // beamsplitter's plain block; the curve is cut INTO the front face
-    // by the pocket below.
-    cube([mirror_w, mirror_frame_y, mirror_frame_z]);
+    // by the pocket below.  Outer width = combiner_frame_width (optic + 2*border).
+    cube([combiner_frame_width, combiner_frame_depth, combiner_frame_height]);
 
     // ── reflective insert pocket — curved back wall, open at +Y ────
     // The pocket is the region INSIDE the cylinder (Y above the curved
     // boundary) AND inside the front-face box (between the deepest
-    // possible point and the front face, inset by `wall` on X/Z) — i.e.
-    // a plain intersection() of the two, no extra Booleans needed.
+    // possible point and the front face, inset by frame_border on X/Z) —
+    // i.e. a plain intersection() of the two, no extra Booleans needed.
     intersection() {
-      translate([wall, y_vertex - 0.1, wall])
-        cube([mirror_w - 2 * wall, mirror_frame_y - y_vertex + 0.2, mirror_frame_z - 2 * wall]);
-      translate([mirror_w / 2, y_axis, mirror_frame_z / 2])
+      translate([frame_border, pocket_vertex_y - 0.1, frame_border])
+        cube([combiner_optic_width, combiner_frame_depth - pocket_vertex_y + 0.2, combiner_frame_height - 2 * frame_border]);
+      translate([combiner_frame_width / 2, cylinder_axis_y, combiner_frame_height / 2])
         rotate([0, 90, 0])
-          cylinder(r=mirror_R, h=mirror_w + 2, center=true, $fn=120);
+          cylinder(r=combiner_radius, h=combiner_frame_width + 2, center=true, $fn=120);
     }
 
     // ── see-through window — open through BOTH faces, same idiom as
     // beamsplitter_frame()'s window — so the eye can look straight
-    // through the partial-mirror combiner; a mirror_lip-wide rim retains
-    // the curved insert/coating.  Spans the full local-Y depth, so it
-    // naturally unions with the curved pocket's empty space above.
-    translate([wall + mirror_lip, -0.1, wall + mirror_lip])
-      cube([mirror_w - 2 * (wall + mirror_lip), mirror_frame_y + 0.2, mirror_frame_z - 2 * (wall + mirror_lip)]);
+    // through the partial-mirror combiner; a combiner_rear_lip-wide rear
+    // rim retains the curved insert/coating.  Spans the full local-Y
+    // depth, so it naturally unions with the curved pocket's empty space
+    // above.
+    translate([frame_border + combiner_rear_lip, -0.1, frame_border + combiner_rear_lip])
+      cube([combiner_frame_width - 2 * (frame_border + combiner_rear_lip), combiner_frame_depth + 0.2, combiner_frame_height - 2 * (frame_border + combiner_rear_lip)]);
   }
 }
 
@@ -589,63 +611,62 @@ module mirror_frame() {
 // Each frame is centred in X; rectangular arms run from each shroud side
 // wall and overlap arm_overlap mm INTO the frame.  Reuses the old
 // glass_frame_mount()'s side-arm-merge-into-shroud-wall pattern, now
-// parametrized per element and placed at the P1/P2, angle/combiner_tilt
-// positions derived above.
+// parametrized per element and placed at the centre/tilt positions derived
+// above.
 //
-// beamsplitter_mount() uses rotate([90-angle,0,0]) — at angle=45 this is
-// rotate([45,0,0]), tilting the frame's local +Y face (its pocket
+// beamsplitter_mount() uses rotate([90-beamsplitter_tilt,0,0]) — at 45 this
+// is rotate([45,0,0]), tilting the frame's local +Y face (its pocket
 // opening, per beamsplitter_frame()'s convention) up and back toward the
 // display, exactly as before.
 //
-// mirror_mount() (the combiner) CANNOT reuse that same form: plugging
-// combiner_tilt=90 into rotate([90-combiner_tilt,0,0]) gives
-// rotate([0,0,0]) — no rotation at all — which leaves the frame's local
-// +Y face (its pocket/window opening) pointing in world +Y (forward,
-// AWAY from the display) — wrong; the combiner must face BACKWARD
-// (-Y), confronting the oncoming horizontal beam from the beamsplitter.
-// Derivation: local +Y axis (y=1,z=0) maps, under rotate([rx,0,0]), to
-// world (cos(rx), sin(rx)).  Need this to equal (-1,0) (world -Y) =>
-// rx = 180.  rx = 270 - combiner_tilt evaluates to exactly 180 at
-// combiner_tilt = 90 — this is the correct general form (verified
+// combiner_mount() CANNOT reuse that same form: plugging combiner_tilt=90
+// into rotate([90-combiner_tilt,0,0]) gives rotate([0,0,0]) — no rotation at
+// all — which leaves the frame's local +Y face (its pocket/window opening)
+// pointing in world +Y (forward, AWAY from the display) — wrong; the
+// combiner must face BACKWARD (-Y), confronting the oncoming horizontal beam
+// from the beamsplitter.  Derivation: local +Y axis (y=1,z=0) maps, under
+// rotate([rx,0,0]), to world (cos(rx), sin(rx)).  Need this to equal (-1,0)
+// (world -Y) => rx = 180.  rx = 270 - combiner_tilt evaluates to exactly 180
+// at combiner_tilt = 90 — this is the correct general form (verified
 // independently: at combiner_tilt=90 the local +Y world-space direction
-// dotted against the true beamsplitter-ward unit vector from the
-// combiner's own position gives +1.0, i.e. exact alignment, not just
-// "roughly facing the right way").  Because combiner_tilt=90 makes this
-// a full 180 deg point-reflection about the X-axis, and the frame's
-// local cross-section is symmetric in Y and Z (the curved pocket only
-// varies along local X), the flip is geometrically clean — it doesn't
-// distort the pocket or the side-arm overlap mechanics.
+// dotted against the true beamsplitter-ward unit vector from the combiner's
+// own position gives +1.0, i.e. exact alignment, not just "roughly facing
+// the right way").  Because combiner_tilt=90 makes this a full 180 deg
+// point-reflection about the X-axis, and the frame's local cross-section is
+// symmetric in Y and Z (the curved pocket only varies along local X), the
+// flip is geometrically clean — it doesn't distort the pocket or the
+// side-arm overlap mechanics.
 module beamsplitter_mount() {
-  arm_len = body_w / 2 - bs_w / 2 + arm_overlap;
-  translate([body_w / 2, bs_cy, bs_cz])
-    rotate([90 - angle, 0, 0]) {
-      translate([-bs_w / 2, -bs_frame_y / 2, -bs_frame_z / 2])
+  arm_length = body_width / 2 - beamsplitter_frame_width / 2 + arm_overlap;
+  translate([body_width / 2, beamsplitter_center_y, beamsplitter_center_z])
+    rotate([90 - beamsplitter_tilt, 0, 0]) {
+      translate([-beamsplitter_frame_width / 2, -beamsplitter_frame_depth / 2, -beamsplitter_frame_height / 2])
         beamsplitter_frame();
 
       // Left arm: from left shroud wall, overlapping the frame end
-      translate([-body_w / 2, -bs_frame_y / 2, -bs_frame_z / 2])
-        cube([arm_len, bs_frame_y, bs_frame_z]);
+      translate([-body_width / 2, -beamsplitter_frame_depth / 2, -beamsplitter_frame_height / 2])
+        cube([arm_length, beamsplitter_frame_depth, beamsplitter_frame_height]);
 
       // Right arm: from right shroud wall, overlapping the frame end
-      translate([bs_w / 2 - arm_overlap, -bs_frame_y / 2, -bs_frame_z / 2])
-        cube([arm_len, bs_frame_y, bs_frame_z]);
+      translate([beamsplitter_frame_width / 2 - arm_overlap, -beamsplitter_frame_depth / 2, -beamsplitter_frame_height / 2])
+        cube([arm_length, beamsplitter_frame_depth, beamsplitter_frame_height]);
     }
 }
 
-module mirror_mount() {
-  arm_len = body_w / 2 - mirror_w / 2 + arm_overlap;
-  translate([body_w / 2, mirror_cy, mirror_cz])
+module combiner_mount() {
+  arm_length = body_width / 2 - combiner_frame_width / 2 + arm_overlap;
+  translate([body_width / 2, combiner_center_y, combiner_center_z])
     rotate([270 - combiner_tilt, 0, 0]) {
-      translate([-mirror_w / 2, -mirror_frame_y / 2, -mirror_frame_z / 2])
-        mirror_frame();
+      translate([-combiner_frame_width / 2, -combiner_frame_depth / 2, -combiner_frame_height / 2])
+        combiner_frame();
 
       // Left arm: from left shroud wall, overlapping the frame end
-      translate([-body_w / 2, -mirror_frame_y / 2, -mirror_frame_z / 2])
-        cube([arm_len, mirror_frame_y, mirror_frame_z]);
+      translate([-body_width / 2, -combiner_frame_depth / 2, -combiner_frame_height / 2])
+        cube([arm_length, combiner_frame_depth, combiner_frame_height]);
 
       // Right arm: from right shroud wall, overlapping the frame end
-      translate([mirror_w / 2 - arm_overlap, -mirror_frame_y / 2, -mirror_frame_z / 2])
-        cube([arm_len, mirror_frame_y, mirror_frame_z]);
+      translate([combiner_frame_width / 2 - arm_overlap, -combiner_frame_depth / 2, -combiner_frame_height / 2])
+        cube([arm_length, combiner_frame_depth, combiner_frame_height]);
     }
 }
 
@@ -656,30 +677,34 @@ module mirror_mount() {
 
 // Rebate the bottom part's outer side faces so the skirts sit flush.
 module side_rebates() {
-  translate([-0.1, -0.1, body_height - lap_h])
-    cube([skirt_t + 0.1, body_d + 0.2, lap_h + 0.2]);
-  translate([body_w - skirt_t, -0.1, body_height - lap_h])
-    cube([skirt_t + 0.1, body_d + 0.2, lap_h + 0.2]);
+  translate([-0.1, -0.1, body_height - lap_height])
+    cube([skirt_thickness + 0.1, body_depth + 0.2, lap_height + 0.2]);
+  translate([body_width - skirt_thickness, -0.1, body_height - lap_height])
+    cube([skirt_thickness + 0.1, body_depth + 0.2, lap_height + 0.2]);
 }
 
-// Brass-insert bores in the thick bottom side edges (open at the rebate
-// face), low and in solid material below the PCB.
+// M3 brass-insert bores in the thick bottom side edges (mouth on the rebate
+// face, boring inward into solid material), low and below the PCB.  Mapped
+// from insert_hole()'s -Z bore: rotate so local -Z points INTO the edge.
 module joint_inserts() {
-  for (y = side_screw_y) {
-    translate([skirt_t - 0.3, y, joint_screw_z]) // left edge, bore +X
-      rotate([0, 90, 0]) cylinder(d=join_insert_d, h=join_insert_depth + 0.3);
-    translate([body_w - skirt_t + 0.3, y, joint_screw_z]) // right edge, bore -X
-      rotate([0, -90, 0]) cylinder(d=join_insert_d, h=join_insert_depth + 0.3);
+  for (y = joint_screw_y) {
+    translate([skirt_thickness, y, joint_screw_height]) // left edge, bore +X into the solid
+      rotate([0, -90, 0]) insert_hole("M3");
+    translate([body_width - skirt_thickness, y, joint_screw_height]) // right edge, bore -X
+      rotate([0, 90, 0]) insert_hole("M3");
   }
 }
 
-// M3 clearance holes through the top-part skirts.
+// M3 screw clearance holes (with countersink) through the top-part skirts.
+// The screw enters from OUTSIDE each skirt, head flush on the outer face, so
+// the cutter's Z=0 mouth sits on that face and its -Z body bore crosses the
+// skirt toward the insert.
 module joint_clearance() {
-  for (y = side_screw_y) {
-    translate([-0.1, y, joint_screw_z])
-      rotate([0, 90, 0]) cylinder(d=join_clear_d, h=skirt_t + 0.3);
-    translate([body_w + 0.1, y, joint_screw_z])
-      rotate([0, -90, 0]) cylinder(d=join_clear_d, h=skirt_t + 0.3);
+  for (y = joint_screw_y) {
+    translate([0, y, joint_screw_height]) // left skirt, screw enters from -X
+      rotate([0, -90, 0]) screw_hole("M3", skirt_thickness, m3_clearance_fit);
+    translate([body_width, y, joint_screw_height]) // right skirt, screw enters from +X
+      rotate([0, 90, 0]) screw_hole("M3", skirt_thickness, m3_clearance_fit);
   }
 }
 
@@ -691,20 +716,20 @@ module front_box() {
   difference() {
     union() {
       // outer shell (walls + floor), open top
-      translate([0, box_y0, 0])
-        cube([body_w, box_len, box_wall_top]);
+      translate([0, box_back_y, 0])
+        cube([body_width, box_length, box_wall_top_z]);
       // fuse block tying the box into the lower body (z <= body_height,
       // so it never clashes with the shroud lip above)
-      translate([0, box_y0 - 2, 0])
-        cube([body_w, 2 + box_wall, body_height]);
+      translate([0, box_back_y - 2, 0])
+        cube([body_width, 2 + box_wall, body_height]);
     }
     // interior cavity (open top)
-    translate([box_wall, box_y0 + box_wall, box_wall])
-      cube([body_w - 2 * box_wall, box_len - 2 * box_wall, box_h + 1]);
+    translate([box_wall, box_back_y + box_wall, box_wall])
+      cube([body_width - 2 * box_wall, box_length - 2 * box_wall, box_height + 1]);
   }
   // lid screw bosses in the 4 inside corners (rise from the floor)
-  for (bx = box_screw_x, by = box_screw_y)
-    translate([bx, by, 0]) cylinder(r=box_boss_r, h=box_wall_top + 0.01);
+  for (bx = lid_screw_x, by = lid_screw_y)
+    translate([bx, by, 0]) cylinder(r=box_boss_radius, h=box_wall_top_z + 0.01);
 }
 
 // Cable channel: opens through the PCB pocket floor, runs forward UNDER the
@@ -712,45 +737,51 @@ module front_box() {
 // opening in the box front face.  Top reaches the pocket floor so the
 // display cable can drop straight down into it.
 module cable_channel() {
-  pocket_floor = body_height - disp_pcb_t - clearance; // 18.10
-  translate([body_w / 2 - cable_w / 2, body_d * 0.45, cable_z])
-    cube([cable_w,
-          (box_y0 + box_wall + 1) - body_d * 0.45,
-          pocket_floor + 0.2 - cable_z]);
+  pcb_pocket_floor_z = body_height - display_pcb_thickness - display_fit_clearance; // 18.30 (matches the PCB pocket floor)
+  translate([body_width / 2 - cable_channel_width / 2, body_depth * 0.45, cable_channel_floor_z])
+    cube(
+      [
+        cable_channel_width,
+        (box_back_y + box_wall + 1) - body_depth * 0.45,
+        pcb_pocket_floor_z + 0.2 - cable_channel_floor_z,
+      ]
+    );
   // plug opening in the box front wall
-  translate([body_w / 2 - plug_w / 2, box_y1 - box_wall - 0.1, plug_z])
-    cube([plug_w, box_wall + 0.2, plug_h]);
+  translate([body_width / 2 - plug_opening_width / 2, box_front_y - box_wall - 0.1, plug_opening_floor_z])
+    cube([plug_opening_width, box_wall + 0.2, plug_opening_height]);
 }
 
-// Vertical insert bores in the lid bosses (M3, from the boss tops down).
+// Vertical M3 insert bores in the lid bosses (mouth on the boss top, boring
+// down — insert pressed in from +Z, per insert_hole()'s convention).
 module box_lid_inserts() {
-  for (bx = box_screw_x, by = box_screw_y)
-    translate([bx, by, box_wall_top - box_insert_depth])
-      cylinder(d=box_insert_d, h=box_insert_depth + 0.1);
+  for (bx = lid_screw_x, by = lid_screw_y)
+    translate([bx, by, box_wall_top_z])
+      insert_hole("M3");
 }
 
-// Removable top lid (separate printed part), screwed to the bosses.
+// Removable top lid (separate printed part), screwed to the bosses.  Each M3
+// screw drops from the top: head countersunk flush at the lid's top face, the
+// body bore crossing the lid thickness into the boss insert below.
 module box_lid() {
   difference() {
-    translate([0, box_y0, box_wall_top])
-      cube([body_w, box_len, lid_t]);
-    for (bx = box_screw_x, by = box_screw_y) {
-      translate([bx, by, box_wall_top - 0.1])
-        cylinder(d=box_screw_clear, h=lid_t + 0.2);
-      translate([bx, by, box_h - box_head_h])
-        cylinder(d=box_head_d, h=box_head_h + 0.1);
-    }
+    translate([0, box_back_y, box_wall_top_z])
+      cube([body_width, box_length, lid_thickness]);
+    for (bx = lid_screw_x, by = lid_screw_y)
+      translate([bx, by, box_height]) // box_height = lid top face
+        screw_hole("M3", lid_thickness, m3_clearance_fit);
   }
 }
 
 // Engraved label cut into the RIGHT (+X) face of the box.  The text's
 // readable side faces +X (outward) so it reads correctly from the right.
 module right_side_engrave() {
-  translate([body_w - engrave_depth, engrave_y, engrave_z])
+  translate([body_width - engrave_depth, engrave_center_y, engrave_center_z])
     rotate([90, 0, 90])
-      linear_extrude(height = engrave_depth + 0.2)
-        text(engrave_text, size = engrave_size, font = engrave_font,
-             halign = "center", valign = "center");
+      linear_extrude(height=engrave_depth + 0.2)
+        text(
+          engrave_text, size=engrave_size, font=engrave_font,
+          halign="center", valign="center"
+        );
 }
 
 // ── Two parts ────────────────────────────────────────────────
@@ -760,19 +791,19 @@ module bottom_part() {
       screen_body();
       front_box();
       // Picatinny clamp FIXED body — runs the WHOLE length on the underside.
-      translate([body_w / 2, 0, 0]) picatinny_clamp_body(rail_len);
+      translate([body_width / 2, 0, 0]) picatinny_clamp_body(rail_length);
     }
     side_rebates();
     joint_inserts();
     cable_channel();
     box_lid_inserts();
-    if (engrave) right_side_engrave();
+    if (engrave_enabled) right_side_engrave();
   }
 }
 
 // Removable clamp bar, placed in its assembled position under the sight.
 module clamp_bar() {
-  translate([body_w / 2, 0, 0]) picatinny_clamp_bar(rail_len);
+  translate([body_width / 2, 0, 0]) picatinny_clamp_bar(rail_length);
 }
 
 module top_part() {
@@ -780,19 +811,19 @@ module top_part() {
     union() {
       eotech_shroud();
       beamsplitter_mount();
-      mirror_mount();
+      combiner_mount();
     }
     joint_clearance();
   }
 }
 
 // ── Render selector ──────────────────────────────────────────
-if (part == "bottom")
+if (render_part == "bottom")
   bottom_part();
-else if (part == "top")
+else if (render_part == "top")
   top_part();
-else if (part == "bar") // the removable clamp bar, on its own
-clamp_bar(); else if (part == "lid") // the box top lid, on its own
+else if (render_part == "bar") // the removable clamp bar, on its own
+clamp_bar(); else if (render_part == "lid") // the box top lid, on its own
 box_lid(); else {
   // "both" — full assembled preview
   bottom_part();
