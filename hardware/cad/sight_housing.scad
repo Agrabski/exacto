@@ -47,6 +47,7 @@
 // │  45° = classic half-mirror reflex position              │
 // └─────────────────────────────────────────────────────────┘
 use <picatinny.scad>
+use <watertight_box.scad>
 
 angle = 60; // degrees  (recommended 35–65)
 
@@ -101,16 +102,26 @@ lap_h = 14.00; // vertical overlap: skirt reaches this far below the seam
 skirt_t = 3.00; // skirt thickness (sits in a rebate on the bottom)
 joint_screw_z = 9.00; // height of the horizontal joint screws (under the PCB)
 
-// Forward electronics box (hollow, screw-on top lid)
+// Forward electronics box (hollow, screw-on top lid) — see watertight_box.scad
 box_wall = 2.50; // box wall / floor thickness
 lid_t = 2.50; // top-lid thickness
-lid_fit = 0.20; // lid-to-pocket clearance
 box_boss_r = 4.50; // lid screw-boss radius (inside box corners)
+box_boss_inset = 2.00; // pull bosses toward corners so they merge into walls
 box_screw_clear = 3.40; // M3 lid-screw clearance (lid)
 box_head_d = 6.00; // M3 lid-screw head counterbore dia
 box_head_h = 3.00; // counterbore depth
 box_insert_d = 4.00; // M3 brass insert dia (box bosses)
 box_insert_depth = 5.00;
+
+// Watertight top seal (tongue-and-groove gasket joint between box and lid).
+// The box rim carries a groove for an O-ring cord / silicone bead; the lid
+// tongue drops in and the 4 corner screws clamp it to seal the electronics.
+seal_rim = 5.00; // thickened sealing rim at the box opening (>= box_wall)
+seal_rim_h = 4.00; // height of the thick rim band below the lid
+seal_w = 2.20; // gasket-groove width (sits within the rim)
+seal_depth = 2.00; // groove depth, measured down from the rim top
+seal_clear = 0.25; // tongue-to-groove clearance, per side
+tongue_h = 1.40; // lid-tongue height (< seal_depth → room for the gasket)
 
 // Cable routing (channel under the PCB, plug opening at the box front)
 cable_w = 14.00; // under-PCB cable channel width
@@ -170,10 +181,8 @@ box_h = body_height + lip_h; // 30.00, reaches the lens opening
 box_wall_top = box_h - lid_t; // 27.50, top of the box walls
 box_y0 = body_d; // box back (joins the optics head)
 box_y1 = body_d + box_len; // box front (muzzle end)
-// Lid screw-boss positions (the 4 inside box corners).  Pulled 2 mm toward
-// the corners so the bosses MERGE into the walls (no tangent line contact).
-box_screw_x = [box_wall + box_boss_r - 2, body_w - box_wall - box_boss_r + 2];
-box_screw_y = [box_y0 + box_wall + box_boss_r - 2, box_y1 - box_wall - box_boss_r + 2];
+// (Lid screw-boss positions are derived inside watertight_box.scad from the
+// box footprint, box_boss_r and box_boss_inset, so the base and lid agree.)
 
 // Picatinny rail runs the WHOLE length of the sight (optics head + box).
 rail_len = body_d + box_len;
@@ -441,27 +450,25 @@ module joint_clearance() {
 }
 
 // ── Forward electronics box ──────────────────────────────────
-// Hollow box in front of the optics head, open on top for a screw-on lid.
-// Its back joins the optics-head front wall; the cable enters via
-// cable_channel().  Walls/floor = box_wall; top reaches the lens opening.
+// Hollow box in front of the optics head, with a WATERTIGHT screw-on top
+// lid (see watertight_box.scad).  Its back joins the optics-head front
+// wall; the cable enters via cable_channel().  Walls/floor = box_wall; top
+// reaches the lens opening.
 module front_box() {
-  difference() {
-    union() {
-      // outer shell (walls + floor), open top
-      translate([0, box_y0, 0])
-        cube([body_w, box_len, box_wall_top]);
-      // fuse block tying the box into the lower body (z <= body_height,
-      // so it never clashes with the shroud lip above)
-      translate([0, box_y0 - 2, 0])
-        cube([body_w, 2 + box_wall, body_height]);
-    }
-    // interior cavity (open top)
-    translate([box_wall, box_y0 + box_wall, box_wall])
-      cube([body_w - 2 * box_wall, box_len - 2 * box_wall, box_h + 1]);
-  }
-  // lid screw bosses in the 4 inside corners (rise from the floor)
-  for (bx = box_screw_x, by = box_screw_y)
-    translate([bx, by, 0]) cylinder(r=box_boss_r, h=box_wall_top + 0.01);
+  // Watertight enclosure: shell + sealing rim + lid screw bosses/inserts.
+  translate([0, box_y0, 0])
+    watertight_box_base(
+      w = body_w, d = box_len, h = box_wall_top,
+      wall = box_wall, floor = box_wall,
+      rim = seal_rim, rim_h = seal_rim_h,
+      seal_w = seal_w, seal_depth = seal_depth,
+      boss_r = box_boss_r, boss_inset = box_boss_inset,
+      insert_d = box_insert_d, insert_depth = box_insert_depth
+    );
+  // fuse block tying the box into the lower body (z <= body_height, so it
+  // never clashes with the shroud lip above)
+  translate([0, box_y0 - 2, 0])
+    cube([body_w, 2 + box_wall, body_height]);
 }
 
 // Cable channel: opens through the PCB pocket floor, runs forward UNDER the
@@ -479,25 +486,19 @@ module cable_channel() {
     cube([plug_w, box_wall + 0.2, plug_h]);
 }
 
-// Vertical insert bores in the lid bosses (M3, from the boss tops down).
-module box_lid_inserts() {
-  for (bx = box_screw_x, by = box_screw_y)
-    translate([bx, by, box_wall_top - box_insert_depth])
-      cylinder(d=box_insert_d, h=box_insert_depth + 0.1);
-}
-
-// Removable top lid (separate printed part), screwed to the bosses.
+// Removable top lid (separate printed part): a sealing tongue drops into
+// the box-rim groove and 4 counterbored screws clamp it down — watertight.
 module box_lid() {
-  difference() {
-    translate([0, box_y0, box_wall_top])
-      cube([body_w, box_len, lid_t]);
-    for (bx = box_screw_x, by = box_screw_y) {
-      translate([bx, by, box_wall_top - 0.1])
-        cylinder(d=box_screw_clear, h=lid_t + 0.2);
-      translate([bx, by, box_h - box_head_h])
-        cylinder(d=box_head_d, h=box_head_h + 0.1);
-    }
-  }
+  translate([0, box_y0, 0])
+    watertight_box_lid(
+      w = body_w, d = box_len, h = box_wall_top,
+      lid_t = lid_t,
+      rim = seal_rim,
+      seal_w = seal_w, seal_depth = seal_depth,
+      seal_clear = seal_clear, tongue_h = tongue_h,
+      wall = box_wall, boss_r = box_boss_r, boss_inset = box_boss_inset,
+      screw_clear = box_screw_clear, head_d = box_head_d, head_h = box_head_h
+    );
 }
 
 // Engraved label cut into the RIGHT (+X) face of the box.  The text's
@@ -522,7 +523,6 @@ module bottom_part() {
     side_rebates();
     joint_inserts();
     cable_channel();
-    box_lid_inserts();
     if (engrave) right_side_engrave();
   }
 }
