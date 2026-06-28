@@ -21,29 +21,41 @@ from PIL import Image
 SCAD = Path(__file__).parent / 'sight_housing.scad'
 DEFAULT_OUT = Path(__file__).parent / 'sight_render.png'
 
-# Camera: (label, rx, rz, dist)
-#   rx = elevation — 50 gives isometric, 10 gives near-horizontal side view
+# Camera: (label, cx, cy, cz, rx, rz, dist)
+#   cx,cy,cz = look-at centre (mm)
+#   rx = elevation — 50 gives isometric, 25 gives a flatter head-on view
 #   rz = azimuth   — 0=front, 90=right, 180=rear, 270=left
 #   dist = mm from look-at point to camera
+#
+# Retuned for the topology-"c" birdbath (fixed 45° beamsplitter relay near
+# the display + fixed-vertical combiner pushed forward by front_ext): the
+# optics head is now taller (shroud_h ~55.5, total height ~75.5) and the
+# combiner's see-through window sits forward of body_d, near the front
+# electronics box join — so the look-at centre is pulled toward the
+# optics head (low Y, high Z) rather than the old design's box midpoint,
+# and distances are increased to fit the taller silhouette in frame.  The
+# isometric views centre on (29,20,55) — the optics head's rough middle;
+# the head-on "front aperture" view uses its own tighter centre (29,40,52),
+# framed directly on the combiner window, since a single shared centre
+# could not frame both the isometric body shots and a tight aperture
+# close-up well.
 VIEWS = [
-    ('Rear-right isometric',  50,  30, 230),
-    ('Front aperture (45°)',   20, 180, 210),
-    ('Front-left isometric',  40, 215, 230),
+    ('Rear-right isometric',     29, 20, 55, 50, 150, 300),
+    ('Front aperture (head-on)', 29, 40, 52, 25, 180, 260),
+    ('Front-left isometric',     29, 20, 55, 50, 240, 300),
 ]
-
-# Approximate model centre (mm) — body 47×34, total height ~61
-CX, CY, CZ = 24, 17, 27
 
 IMGW, IMGH   = 900, 700
 COLORSCHEME  = 'DeepOcean'
 
 
-def render_view(label: str, rx: int, rz: int, dist: int, out: Path) -> None:
+def render_view(label: str, cx: float, cy: float, cz: float,
+                 rx: int, rz: int, dist: int, out: Path) -> None:
     cmd = [
         'xvfb-run', '-a',
         'openscad', '--render',
         f'--imgsize={IMGW},{IMGH}',
-        f'--camera={CX},{CY},{CZ},{rx},0,{rz},{dist}',
+        f'--camera={cx},{cy},{cz},{rx},0,{rz},{dist}',
         f'--colorscheme={COLORSCHEME}',
         '-o', str(out),
         str(SCAD),
@@ -77,10 +89,10 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         frames: list[tuple[str, Path]] = []
-        for i, (label, rx, rz, dist) in enumerate(VIEWS):
+        for i, (label, cx, cy, cz, rx, rz, dist) in enumerate(VIEWS):
             png = Path(tmp) / f'view_{i}.png'
             print(f'Rendering {label!r} …')
-            render_view(label, rx, rz, dist, png)
+            render_view(label, cx, cy, cz, rx, rz, dist, png)
             frames.append((label, png))
         composite(frames, args.out)
 
