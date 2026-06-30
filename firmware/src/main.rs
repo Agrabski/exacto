@@ -10,7 +10,7 @@ mod text;
 
 use core::fmt::Debug;
 
-use ::ballistic_calculator::{BBDrift, CalculatorConfiguration};
+use ::ballistic_calculator::CalculatorConfiguration;
 use arduino_hal::default_serial;
 use embedded_graphics::prelude::{DrawTarget, Primitive};
 use embedded_graphics::primitives::{Line, PrimitiveStyleBuilder};
@@ -48,6 +48,7 @@ fn main() -> ! {
         last_range: 0,
         drift: Point::default(),
         configuration: CalculatorConfiguration::default(),
+        time_of_flight_ms: 0,
     };
     // Buttons: active-low with internal pull-ups. up=d2 (INT4), down=d3 (INT5),
     // select=d18 (INT3). The interrupt vectors read the port directly, so the pin
@@ -71,10 +72,10 @@ fn main() -> ! {
     let mut settings_state = settings::SettingsState::new();
     interface.clear_oled();
     let mut settings_were_opened = false;
-    ufmt::uwriteln!(&mut serial, "start").ok();
+    ufmt::uwriteln!(&mut serial, "start1").ok();
     display_sight(&mut interface, &sight);
     loop {
-        let mut last_sight = sight.clone();
+        let last_sight = sight.clone();
         last_update_loop += 1;
         let event = buttons::poll();
         let settings_was_updated = settings_state.update(&mut sight, event);
@@ -98,6 +99,7 @@ fn main() -> ! {
             if last_sight != sight || settings_were_opened {
                 interface.clear_oled();
                 display_sight(&mut interface, &sight);
+                ufmt::uwriteln!(&mut serial, "TOF {}", sight.time_of_flight_ms).ok();
                 last_update_loop = 0;
                 settings_were_opened = false;
             }
@@ -173,13 +175,10 @@ fn display_sight<T>(interface: &mut T, sight: &Sight)
 where
     T: DrawTarget<Color = Rgb565, Error: Debug>,
 {
-    let mut buffer = *b"RNG: XXX";
-    write_value(interface, sight.range, Point::new(0, 84), &mut buffer);
-
-    buffer = *b"PWR: XXX";
+    let mut buffer = *b"PWR: XXX";
     write_value(
         interface,
-        sight.battery_power,
+        sight.battery_power as u16,
         Point::new(0, 90),
         &mut buffer,
     );
@@ -205,6 +204,21 @@ where
             Size::new(reticle_size / 2, reticle_size / 2),
         ),
     );
+    let text_position = point_of_impact + Point::new((reticle_size / 2 + 8) as i32, 0);
+    let mut buffer = *b"TOF: XXX";
+    write_value(
+        interface,
+        sight.time_of_flight_ms / 10, // tens of miliseconds
+        text_position,
+        &mut buffer,
+    );
+    buffer = *b"RNG: XXX";
+    write_value(
+        interface,
+        sight.range as u16,
+        text_position + Point::new(0, 6),
+        &mut buffer,
+    );
 }
 
 fn draw_rectangle<T>(interface: &mut T, rectangle: Rectangle)
@@ -220,7 +234,7 @@ where
     r.draw(interface).unwrap();
 }
 
-fn write_value<T>(interface: &mut T, value: u8, position: Point, buffer: &mut [u8])
+fn write_value<T>(interface: &mut T, value: u16, position: Point, buffer: &mut [u8])
 where
     T: DrawTarget<Color = Rgb565, Error: Debug>,
 {

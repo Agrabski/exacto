@@ -1,6 +1,4 @@
-use ballistic_calculator::{
-    calculate_drift, BBDrift, CalculatorConfiguration, Float, IntegerType, PI,
-};
+use ballistic_calculator::{calculate_drift, CalculatorConfiguration, Float, PI};
 use embedded_graphics::prelude::Point;
 
 #[derive(PartialEq, Clone)]
@@ -12,6 +10,7 @@ pub struct Sight {
     pub last_range: u8,
     pub configuration: CalculatorConfiguration,
     pub drift: Point,
+    pub time_of_flight_ms: u16,
 }
 
 impl Sight {
@@ -27,16 +26,16 @@ impl Sight {
         if self.range == self.last_range {
             return;
         }
-        let drift = calculate_drift(&self.configuration, Float::from(self.range as IntegerType));
+        let drift = calculate_drift(&self.configuration, self.range as Float);
         self.drift = Point::new(
             to_pixels(self.range, drift.drift_x, 128),
-            to_pixels(self.range, drift.drift_y, 96),
+            to_pixels(self.range, -drift.drift_y, 96),
         );
+        self.time_of_flight_ms = drift.time_of_flight as u16;
         self.last_range = self.range;
     }
 }
 
 fn to_pixels(range: u8, drift: Float, axis_size: u8) -> i32 {
-    (drift * Float::from(axis_size as IntegerType) / (PI * Float::from(range as IntegerType) / 4))
-        .value() as i32
+    (drift * axis_size as Float / (PI * range as Float / 4.0)) as i32
 }

@@ -1,8 +1,7 @@
 use crate::Float;
 
 pub fn velocity_from_kinetic_energy(energy: Float, mass: Float) -> Float {
-    let velocity_mps = (Float::from(2) * energy / mass).sqrt();
-    velocity_mps
+    libm::sqrtf(2.0 * energy / mass)
 }
 
 pub fn drag_force(
@@ -13,9 +12,7 @@ pub fn drag_force(
 ) -> Float {
     // Drag force formula: Fd = 0.5 * Cd * rho * A * v^2
     let v_squared = velocity * velocity;
-    
-        Float::new(1, 2) * drag_coefficient * air_density * area * v_squared
-    
+    0.5 * drag_coefficient * air_density * area * v_squared
 }
 
 pub fn magnus_force(
@@ -24,10 +21,5 @@ pub fn magnus_force(
     air_density: Float,
     radius: Float,
 ) -> Float {
-    
-        Float::new(1,2)
-            * air_density
-            * (radius * radius * radius)
-            * velocity
-            * angular_velocity
+    0.5 * air_density * (radius * radius * radius) * velocity * angular_velocity
 }

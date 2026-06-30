@@ -5,4 +5,4 @@ edition = "2024"
 license = "GPL-3.0-or-later"
 
 [dependencies]
-fraction = { path = "../fraction" }
+libm = "0.2"

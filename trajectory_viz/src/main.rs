@@ -3,11 +3,11 @@
 //! Plots BB drop vs. downrange distance (0-100 m) for a shot fired parallel to
 //! the ground, with live-adjustable parameters. Two curves are overlaid:
 //!   * an accurate host-side `f64` forward-Euler simulation, and
-//!   * the embedded `ballistic_calculator` (`Fraction<IntegerType>` rational math) that
-//!     actually runs on the device.
+//!   * the embedded `ballistic_calculator` (`f32` math) that actually runs on the
+//!     device.
 //! The divergence between them shows how well the embedded approximation holds up.
 
-use ballistic_calculator::{calculate_drift, CalculatorConfiguration, Float, IntegerType};
+use ballistic_calculator::{calculate_drift, CalculatorConfiguration, Float};
 use eframe::egui;
 use egui_plot::{Legend, Line, Plot, PlotPoints};
 
@@ -50,9 +50,15 @@ impl Params {
     }
 }
 
+struct SimResult {
+    /// `[range_m, height_m]` trajectory samples.
+    pts: Vec<[f64; 2]>,
+    /// `[range_m, time_ms]` time-of-flight samples (same cadence as `pts`).
+    tof: Vec<[f64; 2]>,
+}
+
 /// Accurate trajectory: forward-Euler integration in the vertical plane.
-/// Returns `[range_m, height_m]` samples (height above the ground; 0 = ground).
-fn simulate_f64(p: &Params) -> Vec<[f64; 2]> {
+fn simulate_f64(p: &Params) -> SimResult {
     let r = BB_RADIUS_M;
     let area = std::f64::consts::PI * r * r;
     let m = p.mass_kg();
@@ -62,13 +68,16 @@ fn simulate_f64(p: &Params) -> Vec<[f64; 2]> {
     let mut vx = p.muzzle_velocity();
     let mut vy = 0.0_f64;
 
-    let dt = 5e-4_f64;
-    let mut t = 0.0_f64;
+    // Integration step in milliseconds; physics equations use dt_s (seconds).
+    let dt_ms = 0.5_f64;
+    let dt_s = dt_ms * 1e-3;
+    let mut t_ms = 0.0_f64;
     let sample_step = 0.5_f64;
     let mut next_sample = sample_step;
 
     let mut pts = vec![[0.0, START_HEIGHT_M]];
-    while x < 100.0 && t < 30.0 {
+    let mut tof = vec![[0.0, 0.0_f64]];
+    while x < 100.0 && t_ms < 30_000.0 {
         let v = (vx * vx + vy * vy).sqrt().max(1e-9);
 
         // Drag: Fd = 0.5 * Cd * rho * A * v^2, opposing the velocity vector.
@@ -82,14 +91,15 @@ fn simulate_f64(p: &Params) -> Vec<[f64; 2]> {
         let ax_mag = magnus_accel * (-vy / v);
         let ay_mag = magnus_accel * (vx / v);
 
-        vx += (ax_drag + ax_mag) * dt;
-        vy += (ay_drag + ay_mag - GRAVITY) * dt;
-        x += vx * dt;
-        y += vy * dt;
-        t += dt;
+        vx += (ax_drag + ax_mag) * dt_s;
+        vy += (ay_drag + ay_mag - GRAVITY) * dt_s;
+        x += vx * dt_s;
+        y += vy * dt_s;
+        t_ms += dt_ms;
 
         if x >= next_sample {
             pts.push([x, y]);
+            tof.push([x, t_ms]);
             next_sample += sample_step;
         }
         // Stop once the BB has hit the ground.
@@ -97,46 +107,35 @@ fn simulate_f64(p: &Params) -> Vec<[f64; 2]> {
             break;
         }
     }
-    pts
+    SimResult { pts, tof }
 }
 
-/// Convert an `f64` to `Fraction<IntegerType>`, picking the finest denominator whose
-/// numerator still fits the IntegerType range (so tiny masses keep precision and large
-/// values don't overflow on construction).
-fn to_frac(v: f64) -> Float {
-    for &d in &[10000i32, 1000, 100, 10, 1] {
-        let n = (v * d as f64).round();
-        if n.abs() <= 30000.0 {
-            return Float::new(n as IntegerType, d as IntegerType);
-        }
-    }
-    Float::new(v.round().clamp(-30000.0, 30000.0) as IntegerType, 1)
+struct EmbeddedSimResult {
+    pts: Vec<[f64; 2]>,
+    /// `[range_m, time_ms]` from the embedded calculator.
+    tof: Vec<[f64; 2]>,
 }
 
 /// The embedded calculator's view of the trajectory: call `calculate_drift` for
-/// each whole-metre range and read back the cumulative vertical drift.
-fn simulate_embedded(p: &Params) -> Vec<[f64; 2]> {
+/// each whole-metre range and read back the cumulative vertical drift and TOF.
+fn simulate_embedded(p: &Params) -> EmbeddedSimResult {
     let config = CalculatorConfiguration {
-        magnus_effect_angular_velocity: to_frac(p.magnus_spin_rad_s),
-        bb_weight: to_frac(p.mass_kg()),
-        muzzle_energy: to_frac(p.muzzle_energy_j),
-        angle_of_elevation: Float::zero(),
-        air_density: to_frac(p.air_density),
-        drag_coefficient: to_frac(p.drag_cd),
+        magnus_effect_angular_velocity: p.magnus_spin_rad_s as Float,
+        bb_weight: p.mass_kg() as Float,
+        muzzle_energy: p.muzzle_energy_j as Float,
+        angle_of_elevation: 0.0,
+        air_density: p.air_density as Float,
+        drag_coefficient: p.drag_cd as Float,
     };
 
     let mut pts = vec![[0.0, START_HEIGHT_M]];
+    let mut tof = vec![[0.0, 0.0_f64]];
     for range in 1..=100 {
-        let drift = calculate_drift(&config, Float::from(range));
-        let den = drift.drift_y.denominator;
-        let drop_m = if den == 0 {
-            0.0
-        } else {
-            drift.drift_y.numerator as f64 / den as f64
-        };
-        pts.push([range as f64, START_HEIGHT_M + drop_m]);
+        let drift = calculate_drift(&config, range as Float);
+        pts.push([range as f64, START_HEIGHT_M + drift.drift_y as f64]);
+        tof.push([range as f64, drift.time_of_flight as f64]);
     }
-    pts
+    EmbeddedSimResult { pts, tof }
 }
 
 struct App {
@@ -212,10 +211,14 @@ impl eframe::App for App {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("BB trajectory — height above ground vs. range");
-            let f64_pts = simulate_f64(&self.params);
-            let emb_pts = simulate_embedded(&self.params);
+            let sim = simulate_f64(&self.params);
+            let emb = simulate_embedded(&self.params);
 
+            let available = ui.available_height();
+            let traj_height = available * 0.65;
+            let tof_height = available * 0.30;
+
+            ui.heading("BB trajectory — height above ground vs. range");
             Plot::new("trajectory")
                 .legend(Legend::default())
                 .x_axis_label("range (m)")
@@ -223,11 +226,24 @@ impl eframe::App for App {
                 .include_x(0.0)
                 .include_x(100.0)
                 .include_y(0.0)
+                .height(traj_height)
                 .show(ui, |plot_ui| {
-                    plot_ui.line(Line::new(PlotPoints::from(f64_pts)).name("f64 reference"));
-                    plot_ui.line(
-                        Line::new(PlotPoints::from(emb_pts)).name("embedded Fraction<IntegerType>"),
-                    );
+                    plot_ui.line(Line::new(PlotPoints::from(sim.pts)).name("f64 reference"));
+                    plot_ui.line(Line::new(PlotPoints::from(emb.pts)).name("embedded f32"));
+                });
+
+            ui.heading("Time of flight vs. range");
+            Plot::new("tof")
+                .legend(Legend::default())
+                .x_axis_label("range (m)")
+                .y_axis_label("time of flight (ms)")
+                .include_x(0.0)
+                .include_x(100.0)
+                .include_y(0.0)
+                .height(tof_height)
+                .show(ui, |plot_ui| {
+                    plot_ui.line(Line::new(PlotPoints::from(sim.tof)).name("TOF f64 reference"));
+                    plot_ui.line(Line::new(PlotPoints::from(emb.tof)).name("TOF embedded f32"));
                 });
         });
     }
