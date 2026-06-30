@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.testExplorer": true,
+    "rust-analyzer.cargo.target": "avr-none",
+    "rust-analyzer.cargo.extraArgs": ["-Zbuild-std=core"],
+    "rust-analyzer.procMacro.enable": false,
+    "rust-analyzer.cargo.buildScripts.enable": false
+}

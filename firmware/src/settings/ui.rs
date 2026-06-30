@@ -38,7 +38,7 @@ impl Menu for NavigationMenu {
         }
     }
     
-    fn handle_click(&self, state: &mut NavigationMenuState, sight: &mut Sight) -> ClickResult<SettingsMenu> {
+    fn handle_click(&self, state: &mut NavigationMenuState, _sight: &mut Sight) -> ClickResult<SettingsMenu> {
         if state.selected_index < (self.options.len() as i32) {
             ClickResult::Navigate((self.options[state.selected_index as usize].action)())
         } else {
@@ -46,7 +46,7 @@ impl Menu for NavigationMenu {
         }
     }
 
-    fn draw(&self, state: &NavigationMenuState, display: &mut dyn SettingsRenderer, sight: &Sight)
+    fn draw(&self, state: &NavigationMenuState, display: &mut dyn SettingsRenderer, _sight: &Sight)
     {
         for (index, option) in self.options.iter().enumerate() {
             let text_type = if index == state.selected_index as usize {

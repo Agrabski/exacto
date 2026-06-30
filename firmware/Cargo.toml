@@ -1,0 +1,43 @@
+[package]
+name = "exacto"
+version = "0.1.0"
+authors = ["AGrabski <adam.gr@outlook.com>"]
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+
+[[bin]]
+name = "exacto"
+test = false
+bench = false
+
+
+[dependencies]
+ballistic_calculator = {path = "../ballistic_calculator"}
+panic-halt = "1.0.0"
+ufmt = "0.2.0"
+nb = "1.1.0"
+embedded-hal = "1.0"
+display-interface-spi = "0.5.0"
+display-interface = "0.5.0"
+embedded-graphics-core = { version = "0.4"}
+embedded-graphics = "0.8.1"
+ssd1351="0.5.0"
+const_format = "0.2.34"
+avr-device = "0.7.0"
+[dependencies.byte-slice-cast]
+version = "1.2.2"
+default-features = false
+
+[dependencies.arduino-hal]
+git = "https://github.com/rahix/avr-hal"
+rev = "fafaf587a32a4500239fd073f89d1b9c36b48092"
+features = ["arduino-mega2560"]
+
+
+
+
+[features]
+default = ["graphics"]
+graphics = []
+buffered = []

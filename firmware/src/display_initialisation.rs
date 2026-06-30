@@ -1,13 +1,10 @@
+use crate::embedded_graphics_transform::FlipY;
 use display_interface::DisplayError;
-use crate::embedded_graphics_transform::{ FlipY};
 use embedded_hal::delay::DelayNs;
 use ssd1351::mode::GraphicsMode;
 
 use arduino_hal::{
-    hal::{
-        self,
-        port::{self, Dynamic, PB2, PB3, PB4, PB5},
-    },
+    hal::port::{self, Dynamic, PB0, PB1, PB2, PB3},
     pac::SPI,
     port::{
         mode::{Input, Output, PullUp},
@@ -16,7 +13,6 @@ use arduino_hal::{
     spi::{ChipSelectPin, DataOrder, SerialClockRate},
     Spi,
 };
-use byte_slice_cast::AsByteSlice;
 use display_interface::{DataFormat, WriteOnlyDataCommand};
 use embedded_hal::spi::{SpiBus, MODE_0};
 use panic_halt as _;
@@ -59,32 +55,22 @@ where
     }
 }
 
-struct DelayShim<WriteFn>
-where
-    WriteFn: FnMut(u32),
-{
-    delay: arduino_hal::hal::delay::Delay<hal::clock::MHz24>,
-    log: WriteFn,
-}
-impl<WriteFn> DelayNs for DelayShim<WriteFn>
-where
-    WriteFn: FnMut(u32),
-{
+struct DelayShim;
+impl DelayNs for DelayShim {
     fn delay_ns(&mut self, ns: u32) {
-        (self.log)(ns);
         arduino_hal::delay_ns(ns);
     }
 }
 
 pub fn create_display(
     spi: SPI,
-    mut cs: Pin<Output, PB2>,
-    clk: Pin<Output, PB5>,
-    din: Pin<Output, PB3>,
+    mut cs: Pin<Output, PB0>,
+    clk: Pin<Output, PB1>,
+    din: Pin<Output, PB2>,
     mut rst: Pin<Output, Dynamic>,
     mut dc: Pin<Output, Dynamic>,
-    miso: Pin<Input<PullUp>, PB4>,
-) -> FlipY<GraphicsMode<SpiWrapper<PB2>>> {
+    miso: Pin<Input<PullUp>, PB3>,
+) -> FlipY<GraphicsMode<SpiWrapper<PB0>>> {
     cs.set_low();
     dc.set_low();
     rst.set_low();
@@ -105,15 +91,7 @@ pub fn create_display(
         .with_size(DisplaySize::Display128x96)
         .connect_interface(SpiWrapper { spi, dc })
         .into();
-    interface
-        .reset(
-            &mut rst,
-            &mut DelayShim {
-                delay: arduino_hal::hal::delay::Delay::<hal::clock::MHz24>::new(),
-                log: |_| {},
-            },
-        )
-        .unwrap();
+    interface.reset(&mut rst, &mut DelayShim).unwrap();
 
     interface.init().unwrap();
     interface.clear();
@@ -123,6 +101,7 @@ pub fn create_display(
 fn send_u8(spi: &mut Spi, words: DataFormat<'_>) -> Result<(), DisplayError> {
     match words {
         DataFormat::U8(slice) => spi.write(slice).map_err(|_| DisplayError::BusWriteError),
+        /*
         DataFormat::U16(slice) => spi
             .write(slice.as_byte_slice())
             .map_err(|_| DisplayError::BusWriteError),
@@ -206,6 +185,7 @@ fn send_u8(spi: &mut Spi, words: DataFormat<'_>) -> Result<(), DisplayError> {
 
             Ok(())
         }
+        */
         _ => Err(DisplayError::DataFormatNotImplemented),
     }
 }

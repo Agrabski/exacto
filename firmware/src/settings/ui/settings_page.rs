@@ -1,7 +1,5 @@
-use embedded_graphics::prelude::Point;
-
 use crate::{
-    format_two_digit, format_two_digit_16,
+    format_two_digit_16,
     settings::{
         rendering::{SettingsRenderer, TextType},
         ui::{ClickResult, Menu},
@@ -18,7 +16,7 @@ pub enum SettingsPageClickResult {
 }
 
 pub trait SettingsPage {
-    fn controls(&self) -> [Option<&dyn SettingsPageControl>; 6];
+    fn controls(&self) -> [Option<&dyn SettingsPageControl>; 4];
 }
 
 pub struct NavigationButton {
@@ -45,7 +43,7 @@ impl SettingsPageControl for TextLine {
 
     fn handle_click(
         &self,
-        has_focus: bool,
+        _has_focus: bool,
         _sight: &mut crate::sight::Sight,
     ) -> SettingsPageClickResult {
         SettingsPageClickResult::None
@@ -59,7 +57,15 @@ impl SettingsPageControl for TextLine {
         active: bool,
         _focused: bool,
     ) {
-        display.render_text(self.text, row, if active{ TextType::Highlighted} else { TextType::Normal });
+        display.render_text(
+            self.text,
+            row,
+            if active {
+                TextType::Highlighted
+            } else {
+                TextType::Normal
+            },
+        );
     }
 }
 
@@ -85,7 +91,7 @@ impl SettingsPageControl for Slider {
     fn handle_click(
         &self,
         has_focus: bool,
-        sight: &mut crate::sight::Sight,
+        _sight: &mut crate::sight::Sight,
     ) -> SettingsPageClickResult {
         if has_focus {
             SettingsPageClickResult::LoseFocus
@@ -134,7 +140,7 @@ impl SettingsPageControl for NavigationButton {
 
     fn handle_click(
         &self,
-        has_focus: bool,
+        _has_focus: bool,
         _sight: &mut crate::sight::Sight,
     ) -> SettingsPageClickResult {
         // Execute the action associated with the button
@@ -147,7 +153,7 @@ impl SettingsPageControl for NavigationButton {
         _sight: &crate::sight::Sight,
         row: u8,
         active: bool,
-        focused: bool,
+        _focused: bool,
     ) {
         display.render_text(self.label, row, {
             if active {
