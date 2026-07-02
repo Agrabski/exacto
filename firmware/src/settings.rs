@@ -12,7 +12,7 @@ use crate::{
 };
 use core::fmt::Debug;
 use embedded_graphics::{
-    pixelcolor::Rgb565,
+    pixelcolor::BinaryColor,
     prelude::DrawTarget,
 };
 
@@ -102,7 +102,7 @@ impl SettingsState {
 
     pub fn draw<DI>(&self, display: &mut DI, sight: &Sight)
     where
-        DI: DrawTarget<Color = Rgb565, Error: Debug>,
+        DI: DrawTarget<Color = BinaryColor, Error: Debug>,
     {
         if let Some(menu) = &self.current_menu {
             let mut renderer = rendering::DefaultSettingsRenderer { display };

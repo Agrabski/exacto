@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 use embedded_graphics::{
-    pixelcolor::Rgb565,
-    prelude::{DrawTarget, Point, RgbColor},
+    pixelcolor::BinaryColor,
+    prelude::{DrawTarget, Point},
 };
 
 use crate::draw_reticle;
@@ -21,14 +21,14 @@ pub trait SettingsRenderer {
 
 pub(crate) struct DefaultSettingsRenderer<'a, TGraphicsInterface>
 where
-    TGraphicsInterface: DrawTarget<Color = Rgb565, Error: Debug>,
+    TGraphicsInterface: DrawTarget<Color = BinaryColor, Error: Debug>,
 {
     pub display: &'a mut TGraphicsInterface,
 }
 
 impl<'a, TGraphicsInterface> SettingsRenderer for DefaultSettingsRenderer<'a, TGraphicsInterface>
 where
-    TGraphicsInterface: DrawTarget<Color = Rgb565, Error: Debug>,
+    TGraphicsInterface: DrawTarget<Color = BinaryColor, Error: Debug>,
 {
     fn render_text(&mut self, text: &str, row: u8, text_type: TextType) {
         self.render_text_inner(
@@ -58,7 +58,7 @@ where
 
 impl<'a, TGraphicsInterface> DefaultSettingsRenderer<'a, TGraphicsInterface>
 where
-    TGraphicsInterface: DrawTarget<Color = Rgb565, Error: Debug>,
+    TGraphicsInterface: DrawTarget<Color = BinaryColor, Error: Debug>,
 {
     fn render_text_inner(&mut self, text: &str, position: Point, _length: u8, text_type: TextType) {
         let (foreground, background) = pick_text_colors(text_type);
@@ -66,11 +66,13 @@ where
     }
 }
 
-/// (foreground, background) colours for a given text type.
-fn pick_text_colors(text_type: TextType) -> (Rgb565, Rgb565) {
+/// (foreground, background) colours for a given text type. The display is
+/// monochrome, so `Highlighted`/`Selected` both render as inverted
+/// (filled-background) text to stand out from `Normal`.
+fn pick_text_colors(text_type: TextType) -> (BinaryColor, BinaryColor) {
     match text_type {
-        TextType::Normal => (Rgb565::WHITE, Rgb565::BLACK),
-        TextType::Highlighted => (Rgb565::RED, Rgb565::GREEN),
-        TextType::Selected => (Rgb565::GREEN, Rgb565::RED),
+        TextType::Normal => (BinaryColor::On, BinaryColor::Off),
+        TextType::Highlighted => (BinaryColor::Off, BinaryColor::On),
+        TextType::Selected => (BinaryColor::Off, BinaryColor::On),
     }
 }

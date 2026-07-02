@@ -1,191 +1,61 @@
 use crate::embedded_graphics_transform::FlipY;
-use display_interface::DisplayError;
-use embedded_hal::delay::DelayNs;
-use ssd1351::mode::GraphicsMode;
 
 use arduino_hal::{
-    hal::port::{self, Dynamic, PB0, PB1, PB2, PB3},
-    pac::SPI,
+    hal::port::{Dynamic, PD0, PD1},
+    i2c::Direction,
+    pac::TWI,
     port::{
         mode::{Input, Output, PullUp},
         Pin,
     },
-    spi::{ChipSelectPin, DataOrder, SerialClockRate},
-    Spi,
+    I2c,
 };
-use display_interface::{DataFormat, WriteOnlyDataCommand};
-use embedded_hal::spi::{SpiBus, MODE_0};
 use panic_halt as _;
-use ssd1351::{
-    builder::Builder,
-    properties::{DisplayRotation, DisplaySize},
-};
-pub struct SpiWrapper<CSPIN>
-where
-    CSPIN: port::PinOps,
-{
-    spi: (Spi, ChipSelectPin<CSPIN>),
-    dc: arduino_hal::port::Pin<arduino_hal::port::mode::Output>,
-}
-const BUFFER_SIZE: usize = 64;
+use ssd1306::{mode::BufferedGraphicsMode, prelude::*, I2CDisplayInterface, Ssd1306};
 
-impl<CSPIN> WriteOnlyDataCommand for SpiWrapper<CSPIN>
-where
-    CSPIN: port::PinOps,
-{
-    fn send_commands(
-        &mut self,
-        commands: display_interface::DataFormat,
-    ) -> Result<(), display_interface::DisplayError> {
-        // Implement the logic to send commands over SPI
-        self.dc.set_low();
-        send_u8(&mut self.spi.0, commands)
-            .map_err(|_| display_interface::DisplayError::BusWriteError)
+// Fallback used if the bus scan below finds nothing.
+const DEFAULT_DISPLAY_I2C_ADDRESS: u8 = 0x3c;
+
+/// Scans the full 7-bit I2C address space for a responding device, falling
+/// back to the most common display address (0x3c) if nothing acknowledges.
+/// Progress and the outcome are logged to `serial`.
+fn detect_display_address(i2c: &mut I2c, serial: &mut impl ufmt::uWrite) -> u8 {
+    ufmt::uwriteln!(serial, "Scanning I2C bus for display...").ok();
+    for address in 0..=127u8 {
+        if i2c.ping_device(address, Direction::Write).unwrap_or(false) {
+            ufmt::uwriteln!(serial, "Display found at address {}", address).ok();
+            return address;
+        }
     }
-
-    fn send_data(
-        &mut self,
-        data: display_interface::DataFormat,
-    ) -> Result<(), display_interface::DisplayError> {
-        // Implement the logic to send data over SPI
-        self.dc.set_high();
-
-        // Send words over SPI
-        send_u8(&mut self.spi.0, data).map_err(|_| display_interface::DisplayError::BusWriteError)
-    }
+    ufmt::uwriteln!(
+        serial,
+        "No I2C device found, defaulting to address {}",
+        DEFAULT_DISPLAY_I2C_ADDRESS
+    )
+    .ok();
+    DEFAULT_DISPLAY_I2C_ADDRESS
 }
 
-struct DelayShim;
-impl DelayNs for DelayShim {
-    fn delay_ns(&mut self, ns: u32) {
-        arduino_hal::delay_ns(ns);
-    }
-}
+pub type Display =
+    FlipY<Ssd1306<I2CInterface<I2c>, DisplaySize128x64, BufferedGraphicsMode<DisplaySize128x64>>>;
 
 pub fn create_display(
-    spi: SPI,
-    mut cs: Pin<Output, PB0>,
-    clk: Pin<Output, PB1>,
-    din: Pin<Output, PB2>,
+    twi: TWI,
+    sda: Pin<Input<PullUp>, PD1>,
+    scl: Pin<Input<PullUp>, PD0>,
     mut rst: Pin<Output, Dynamic>,
-    mut dc: Pin<Output, Dynamic>,
-    miso: Pin<Input<PullUp>, PB3>,
-) -> FlipY<GraphicsMode<SpiWrapper<PB0>>> {
-    cs.set_low();
-    dc.set_low();
-    rst.set_low();
-    let spi = arduino_hal::spi::Spi::new(
-        spi,
-        clk,  // or SCK/ SCLK
-        din,  // or MOSI
-        miso, //miso
-        cs,
-        arduino_hal::spi::Settings {
-            data_order: DataOrder::MostSignificantFirst,
-            clock: SerialClockRate::OscfOver2,
-            mode: MODE_0,
-        },
-    );
-    let mut interface: GraphicsMode<_> = Builder::new()
-        .with_rotation(DisplayRotation::Rotate0)
-        .with_size(DisplaySize::Display128x96)
-        .connect_interface(SpiWrapper { spi, dc })
-        .into();
-    interface.reset(&mut rst, &mut DelayShim).unwrap();
+    serial: &mut impl ufmt::uWrite,
+) -> Display {
+    let mut i2c = I2c::new(twi, sda, scl, 400_000);
+    let address = detect_display_address(&mut i2c, serial);
+    let mut delay = arduino_hal::Delay::new();
 
-    interface.init().unwrap();
-    interface.clear();
-    return FlipY::new(interface);
-}
-
-fn send_u8(spi: &mut Spi, words: DataFormat<'_>) -> Result<(), DisplayError> {
-    match words {
-        DataFormat::U8(slice) => spi.write(slice).map_err(|_| DisplayError::BusWriteError),
-        /*
-        DataFormat::U16(slice) => spi
-            .write(slice.as_byte_slice())
-            .map_err(|_| DisplayError::BusWriteError),
-        DataFormat::U16LE(slice) => {
-            for v in slice.as_mut() {
-                *v = v.to_le();
-            }
-            spi.write(slice.as_byte_slice())
-                .map_err(|_| DisplayError::BusWriteError)
-        }
-        DataFormat::U16BE(slice) => {
-            for v in slice.as_mut() {
-                *v = v.to_be();
-            }
-            spi.write(slice.as_byte_slice())
-                .map_err(|_| DisplayError::BusWriteError)
-        }
-        DataFormat::U8Iter(iter) => {
-            let mut buf = [0; BUFFER_SIZE];
-            let mut i = 0;
-
-            for v in iter.into_iter() {
-                buf[i] = v;
-                i += 1;
-
-                if i == buf.len() {
-                    spi.write(&buf).map_err(|_| DisplayError::BusWriteError)?;
-                    i = 0;
-                }
-            }
-
-            if i > 0 {
-                spi.write(&buf[..i])
-                    .map_err(|_| DisplayError::BusWriteError)?;
-            }
-
-            Ok(())
-        }
-        DataFormat::U16LEIter(iter) => {
-            let mut buf = [0; BUFFER_SIZE];
-            let mut i = 0;
-
-            for v in iter.map(u16::to_le) {
-                buf[i] = v;
-                i += 1;
-
-                if i == buf.len() {
-                    spi.write(buf.as_byte_slice())
-                        .map_err(|_| DisplayError::BusWriteError)?;
-                    i = 0;
-                }
-            }
-
-            if i > 0 {
-                spi.write(buf[..i].as_byte_slice())
-                    .map_err(|_| DisplayError::BusWriteError)?;
-            }
-
-            Ok(())
-        }
-        DataFormat::U16BEIter(iter) => {
-            let mut buf = [0; BUFFER_SIZE];
-            let mut i = 0;
-            let len = buf.len();
-
-            for v in iter.map(u16::to_be) {
-                buf[i] = v;
-                i += 1;
-
-                if i == len {
-                    spi.write(buf.as_byte_slice())
-                        .map_err(|_| DisplayError::BusWriteError)?;
-                    i = 0;
-                }
-            }
-
-            if i > 0 {
-                spi.write(buf[..i].as_byte_slice())
-                    .map_err(|_| DisplayError::BusWriteError)?;
-            }
-
-            Ok(())
-        }
-        */
-        _ => Err(DisplayError::DataFormatNotImplemented),
-    }
+    let interface = I2CDisplayInterface::new_custom_address(i2c, address);
+    let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
+        .into_buffered_graphics_mode();
+    display.reset(&mut rst, &mut delay).unwrap();
+    display.init().unwrap();
+    display.clear_buffer();
+    display.flush().unwrap();
+    FlipY::new(display)
 }

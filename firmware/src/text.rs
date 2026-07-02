@@ -3,8 +3,7 @@
 //! `embedded_graphics`'s `MonoTextStyle`/`Text` glyph-layout path miscompiles on
 //! this AVR target (every character comes out as the same wrong glyph), while the
 //! plain `Image`/`SubImage` blit path renders correctly. So we lay the string out
-//! ourselves and blit each glyph as an `Image`, converting the font's 1bpp pixels
-//! to `Rgb565` through [`GlyphSink`] (on -> foreground, off -> background).
+//! ourselves and blit each glyph as an `Image`.
 
 use core::fmt::Debug;
 
@@ -13,7 +12,7 @@ use embedded_graphics::{
     geometry::{Dimensions, OriginDimensions, Point, Size},
     image::{Image, ImageDrawableExt},
     mono_font::ascii::FONT_4X6,
-    pixelcolor::{BinaryColor, Rgb565},
+    pixelcolor::BinaryColor,
     primitives::Rectangle,
     Drawable, Pixel,
 };
@@ -27,10 +26,10 @@ pub fn draw_text<T>(
     target: &mut T,
     text: &str,
     position: Point,
-    foreground: Rgb565,
-    background: Rgb565,
+    foreground: BinaryColor,
+    background: BinaryColor,
 ) where
-    T: DrawTarget<Color = Rgb565, Error: Debug>,
+    T: DrawTarget<Color = BinaryColor, Error: Debug>,
 {
     let cw = FONT_4X6.character_size.width;
     let ch = FONT_4X6.character_size.height;
@@ -61,19 +60,20 @@ pub fn draw_text<T>(
     }
 }
 
-/// `DrawTarget` adapter mapping a glyph's `BinaryColor` pixels onto an `Rgb565`
-/// target. It mirrors `color_converted` (delegating `fill_contiguous` to the
-/// parent) rather than the `MonoFontDrawTarget` path, which is the variant proven
-/// to render correctly on this target.
+/// `DrawTarget` adapter mapping a glyph's `BinaryColor` pixels onto the
+/// requested foreground/background pair. It mirrors `color_converted`
+/// (delegating `fill_contiguous` to the parent) rather than the
+/// `MonoFontDrawTarget` path, which is the variant proven to render correctly
+/// on this target.
 struct GlyphSink<'a, T> {
     target: &'a mut T,
-    foreground: Rgb565,
-    background: Rgb565,
+    foreground: BinaryColor,
+    background: BinaryColor,
 }
 
 impl<T> GlyphSink<'_, T> {
     #[inline]
-    fn convert(&self, color: BinaryColor) -> Rgb565 {
+    fn convert(&self, color: BinaryColor) -> BinaryColor {
         if color.is_on() {
             self.foreground
         } else {
@@ -84,7 +84,7 @@ impl<T> GlyphSink<'_, T> {
 
 impl<T> Dimensions for GlyphSink<'_, T>
 where
-    T: DrawTarget<Color = Rgb565>,
+    T: DrawTarget<Color = BinaryColor>,
 {
     fn bounding_box(&self) -> Rectangle {
         self.target.bounding_box()
@@ -93,7 +93,7 @@ where
 
 impl<T> DrawTarget for GlyphSink<'_, T>
 where
-    T: DrawTarget<Color = Rgb565>,
+    T: DrawTarget<Color = BinaryColor>,
 {
     type Color = BinaryColor;
     type Error = T::Error;

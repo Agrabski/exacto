@@ -27,8 +27,8 @@
 use core::ops::{Deref, DerefMut};
 use embedded_graphics_core::{prelude::*, primitives::Rectangle};
 
-use ssd1351::mode::GraphicsMode;
 use display_interface::WriteOnlyDataCommand;
+use ssd1306::{mode::BufferedGraphicsMode, prelude::DisplaySize, Ssd1306};
 
 use crate::embedded_graphics_transform::r#impl::{MirrorX, MirrorY};
 
@@ -536,25 +536,25 @@ mod r#impl {
 }
 
 
-impl<D: WriteOnlyDataCommand> MirrorX<GraphicsMode<D>> {
+impl<DI: WriteOnlyDataCommand, SIZE: DisplaySize> MirrorX<Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>>> {
     pub fn clear_oled(&mut self) {
-        GraphicsMode::clear(&mut self.target);
+        self.target.clear_buffer();
     }
 }
 
-impl<D: WriteOnlyDataCommand> FlipX<GraphicsMode<D>> {
+impl<DI: WriteOnlyDataCommand, SIZE: DisplaySize> FlipX<Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>>> {
     pub fn clear_oled(&mut self) {
         self.target.clear_oled();
     }
 }
 
-impl<D: WriteOnlyDataCommand> MirrorY<GraphicsMode<D>> {
+impl<DI: WriteOnlyDataCommand, SIZE: DisplaySize> MirrorY<Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>>> {
     pub fn clear_oled(&mut self) {
-        GraphicsMode::clear(&mut self.target);
+        self.target.clear_buffer();
     }
 }
 
-impl<D: WriteOnlyDataCommand> FlipY<GraphicsMode<D>> {
+impl<DI: WriteOnlyDataCommand, SIZE: DisplaySize> FlipY<Ssd1306<DI, SIZE, BufferedGraphicsMode<SIZE>>> {
     pub fn clear_oled(&mut self) {
         self.target.clear_oled();
     }
