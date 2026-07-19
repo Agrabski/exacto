@@ -37,10 +37,17 @@ module rounded_box(w, d, h, r = 2) {
 // Optics-only housing: OLED PCB sits in a top pocket; all other
 // electronics live in the separate forward box.  Display faces UP (+Z);
 // Y=0 = rear, Y=body_d = front.
-module screen_body(body_w, body_d, body_height, side_edge, wall, clearance) {
+//
+// hold_display : when true (default) the flat top pocket, active-area window
+//   and M2 bores are cut for a display lying in the body floor.  Set false to
+//   get a solid-topped body — used when the display is mounted elsewhere
+//   (e.g. the tilted oled_mount() in the optics head).
+module screen_body(body_w, body_d, body_height, side_edge, wall, clearance,
+                   hold_display = true) {
   difference() {
     rounded_box(body_w, body_d, body_height);
 
+    if (hold_display) {
     // PCB pocket — clearance/2 on every side so PCB drops in freely
     translate(
       [
@@ -79,6 +86,7 @@ module screen_body(body_w, body_d, body_height, side_edge, wall, clearance) {
         ]
       )
         insert_hole("M2");
+    }
 
     // Cable exits FORWARD now (see cable_channel()); no rear slot.
   }
