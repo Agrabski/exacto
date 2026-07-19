@@ -95,6 +95,38 @@ module screw_hole(size, length, clearance = 0) {
   }
 }
 
+// ── Straight clearance bore (no head) ────────────────────────
+// Plain body-clearance hole the screw shank passes through (e.g. a bolt
+// crossing a skirt/wall).  Mouth at Z=0, bores `length` into −Z with a +0.1 mm
+// overshoot at the mouth to break the surface.
+//   length : material thickness the shank crosses.
+//   clear  : added to the screw-body diameter (default 0).
+module clearance_hole(size, length, clear = 0) {
+  translate([0, 0, -length])
+    cylinder(d = screw_body_d(size) + clear, h = length + 0.1);
+}
+
+// ── Clearance bore + cylindrical socket-head counterbore ─────
+// For a socket-head cap screw seated below a surface: a straight shank
+// clearance bore through `length`, plus a flat-bottomed cylindrical recess
+// (head_d × head_h) at the mouth.  Mouth at Z=0, bores into −Z, +0.1 mm
+// overshoot on both bores.  head_d/head_h default to the size's flat-head
+// table values; override for socket heads.
+//   length : full thickness the shank crosses (the plate/lid).
+//   clear  : added to the screw-body diameter for the shank (default 0).
+module counterbore_hole(size, length, clear = 0, head_d = undef, head_h = undef) {
+  hd = head_d == undef ? screw_head_d(size) : head_d;
+  hh = head_h == undef ? screw_head_t(size) : head_h;
+  union() {
+    // shank clearance bore through the full length (+0.1 both ends)
+    translate([0, 0, -(length + 0.1)])
+      cylinder(d = screw_body_d(size) + clear, h = length + 0.2);
+    // cylindrical head recess at the mouth
+    translate([0, 0, -hh])
+      cylinder(d = hd, h = hh + 0.1);
+  }
+}
+
 // ── Demo (only renders when this file is opened directly; `use <>`
 // imports the modules/functions above and ignores everything below) ──
 $fn = 48;
