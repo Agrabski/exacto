@@ -406,28 +406,33 @@ module lens_negatives() {
 // frame end out to the side wall.
 module glass_frame_mount() {
   web_hz = frame_z * 0.28; // half-height of the connecting web (Z band)
+  // Webs live only in the solid depth BEHIND the glass pocket (the -Y half):
+  // the pocket opens toward +Y, so a rear-only web can never enter the lens
+  // seat.  web_dy = frame depth minus the pocket depth.
+  web_dy = frame_y - (lens_t + clearance);
+  web_y0 = -frame_y / 2; // rear (-Y) face of the frame
   translate([body_w / 2, glass_cy, glass_cz])
     rotate([90 - angle, 0, 0]) {
       translate([-arm_w / 2, -frame_y / 2, -frame_z / 2])
         lens_frame();
 
-      // Connecting webs — pocket/window cavities are re-cut so the webs
-      // never intrude into the lens seat.
+      // Connecting webs — pocket/window cavities are also re-cut as a
+      // safeguard so the webs never intrude into the lens seat.
       difference() {
         union() {
           // Left web: frame end (overlapping arm_overlap into the arc) → wall
           hull() {
-            translate([-arm_w / 2 - 0.1, -frame_y / 2, -web_hz])
-              cube([arm_overlap + 0.1, frame_y, 2 * web_hz]);
-            translate([-body_w / 2, -frame_y / 2, -web_hz])
-              cube([side_edge, frame_y, 2 * web_hz]);
+            translate([-arm_w / 2 - 0.1, web_y0, -web_hz])
+              cube([arm_overlap + 0.1, web_dy, 2 * web_hz]);
+            translate([-body_w / 2, web_y0, -web_hz])
+              cube([side_edge, web_dy, 2 * web_hz]);
           }
           // Right web: frame end → wall
           hull() {
-            translate([arm_w / 2 - arm_overlap, -frame_y / 2, -web_hz])
-              cube([arm_overlap + 0.1, frame_y, 2 * web_hz]);
-            translate([body_w / 2 - side_edge, -frame_y / 2, -web_hz])
-              cube([side_edge, frame_y, 2 * web_hz]);
+            translate([arm_w / 2 - arm_overlap, web_y0, -web_hz])
+              cube([arm_overlap + 0.1, web_dy, 2 * web_hz]);
+            translate([body_w / 2 - side_edge, web_y0, -web_hz])
+              cube([side_edge, web_dy, 2 * web_hz]);
           }
         }
         translate([-arm_w / 2, -frame_y / 2, -frame_z / 2])
