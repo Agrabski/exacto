@@ -39,7 +39,8 @@ use <electronics_box.scad>
 angle = 60; // degrees  (recommended 35–65)
 
 // Which piece to render/export: "both" (assembled), "top", "bottom",
-// "bar" (removable Picatinny clamp jaw), "lid" (box top lid)
+// "bar" (removable Picatinny clamp jaw), "lid" (box top lid),
+// "minimal" (bare display + combiner fixture, for optical alignment)
 part = "both";
 
 // ── Base knobs (single source of truth) ──────────────────────
@@ -130,6 +131,36 @@ module top_part() {
   }
 }
 
+// ── Minimal holder ───────────────────────────────────────────
+// Bare fixture that holds ONLY the display and the combiner lens in the exact
+// same relative orientation as the full sight — the display pocket, two thin
+// side supports, and the tilted lens frame.  No shroud hood/lips, no forward
+// box, no Picatinny.  Intended as a single-piece proof/optical-alignment print
+// to check that the display image reflects off the combiner correctly.
+// base_h defaults to the SHORTEST base that still seats the display: the PCB
+// pocket depth + the M2 insert length + a thin floor.  No room is reserved for
+// electronics (that's what the full body_height is for).
+module minimal_holder(base_h = disp_pcb_t() + clearance + insert_bore_depth("M2") + 1.5) {
+  // Combiner geometry recomputed off the shortened base so the glass keeps the
+  // SAME offset above the display surface as in the full sight.  glass_cy does
+  // not depend on base height, so it is reused unchanged.
+  gcz = base_h + clearance_body + frame_y / 2 * cos(angle) + frame_z / 2 * sin(angle);
+  ftz = gcz + frame_z / 2 * sin(angle) + frame_y / 2 * cos(angle);
+  sh = ftz - base_h + shroud_wall - 0.5;
+
+  // display holder (base just tall enough for the pocket + M2 inserts)
+  screen_body(body_w, body_d, base_h, side_edge, wall, clearance);
+  // two minimal side supports rising from the body top to the frame; the
+  // glass_frame_mount webs fuse into these (same faces the shroud walls use)
+  translate([0, 0, base_h])
+    cube([side_edge, body_d, sh]);
+  translate([body_w - side_edge, 0, base_h])
+    cube([side_edge, body_d, sh]);
+  // combiner lens frame, tilted into the target orientation
+  glass_frame_mount(lens, wall, clearance, body_w, side_edge,
+                    glass_cy, gcz, angle);
+}
+
 // ── Render selector ──────────────────────────────────────────
 if (part == "bottom")
   bottom_part();
@@ -139,6 +170,8 @@ else if (part == "bar")
   clamp_bar();
 else if (part == "lid")
   box_lid(body_w, box_y0, box_len, box_h);
+else if (part == "minimal")
+  minimal_holder();
 else {
   // "both" — full assembled preview
   bottom_part();
