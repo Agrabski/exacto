@@ -1,0 +1,3 @@
+[submodule "hardware/cad/scad-common"]
+	path = hardware/cad/scad-common
+	url = https://github.com/Agrabski/scad-common.git
