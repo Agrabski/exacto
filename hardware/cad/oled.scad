@@ -12,6 +12,7 @@ module display_pocket() {
   pcb_h = 26.00;
   pcb_t = 1.60;
   clearance = 0.30;
+  top_bottom_extra = 1.00; // extra clearance added above/below the PCB (Y)
 
   // Mounting-hole centres from the PCB's lower-left corner.
   holes = [
@@ -21,8 +22,14 @@ module display_pocket() {
     [pcb_w - 1.80, pcb_h - 2.20],
   ];
 
-  // PCB pocket — clearance/2 on every side so the PCB drops in freely
-  cube([pcb_w + clearance, pcb_h + clearance, pcb_t + clearance + 0.1]);
+  // PCB pocket — clearance/2 on every side so the PCB drops in freely, plus
+  // an extra 1 mm top/bottom (Y) so the board has more room to seat vertically.
+  translate([0, -top_bottom_extra, 0])
+    cube([
+      pcb_w + clearance,
+      pcb_h + clearance + 2 * top_bottom_extra,
+      pcb_t + clearance + 0.1,
+    ]);
 
   // M2 heat-set insert bores below the pocket floor, at the board's holes
   for (h = holes)

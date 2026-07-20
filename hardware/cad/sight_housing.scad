@@ -156,6 +156,34 @@ module oled_cavity(pos, pitch, fp, below, above, inset) {
     }
 }
 
+// ── Forward baseplate clear ──────────────────────────────────
+// Removes the solid body-top plate in the strip between the OLED display
+// footprint's world-Y forward edge and the body's front face (body_d).
+// The tilted display's screen-normal leans toward +Y, so the plate in this
+// strip sits physically "in front of" the display, blocking light and
+// wasting material.  A world-axis-aligned box cut is used (no tilt) because
+// the removed strip is driven by the Y footprint projection rather than by
+// the optical normal.
+//
+//   fwd_y : world-Y of the display footprint's forward edge, computed as
+//           pos[1] + (fp/2) * cos(pitch).  At the fixed parameters this is
+//           ≈ 29.6 mm; the cut spans 29.6 → body_d = 34 mm (≈ 4.4 mm strip).
+//   X     : pos[0] ± fp/2 — just the display footprint's own width, centred
+//           on the OLED, leaving the rest of the plate (including the thick
+//           left/right edges) intact.
+//   Z     : 0 … body_height + ε — full plate depth cleared in the strip.
+//
+// Does NOT touch: M2 insert bosses (inside oled_floor_inset, rear of the
+// footprint, world Y ≈ 25–27), joint inserts (X < side_edge / X > body_w −
+// side_edge), front_box shell (Y ≥ body_d), cable_channel (already void).
+module oled_forward_clear(pos, pitch, fp, body_w, body_d, body_h, side_edge) {
+  fwd_y = pos[1] + (fp / 2) * cos(pitch);
+  cut_y = body_d - fwd_y;
+  if (cut_y > 0)
+    translate([pos[0] - fp / 2, fwd_y, 0])
+      cube([fp, cut_y, body_h + 0.1]);
+}
+
 // ── Two parts ────────────────────────────────────────────────
 module bottom_part() {
   difference() {
@@ -173,6 +201,8 @@ module bottom_part() {
     }
     // Display cavity cut from the whole part (seat + body) so nothing intrudes.
     oled_cavity(oled_pos, oled_pitch, oled_fp, oled_below, oled_above, oled_floor_inset);
+    // Clear the solid baseplate forward of the display footprint's world-Y edge.
+    oled_forward_clear(oled_pos, oled_pitch, oled_fp, body_w, body_d, body_height, side_edge);
     side_rebates(body_w, body_d, body_height, skirt_t, lap_h);
     joint_inserts(body_w, side_screw_y, skirt_t);
     cable_channel(body_w, body_d, body_height, box_y0, box_y1, disp_pcb_t(), clearance);
@@ -195,7 +225,7 @@ module top_part() {
       );
       glass_frame_mount(
         lens, lens_wall, clearance, body_w, side_edge,
-        glass_cy, glass_cz, angle
+        glass_cy, glass_cz, angle, base_z=body_height
       );
     }
     joint_clearance(body_w, side_screw_y, skirt_t);
@@ -233,18 +263,20 @@ module minimal_holder(base_h = 4.0) {
       // combiner lens frame, tilted into the target orientation
       glass_frame_mount(
         lens, lens_wall, clearance, body_w, side_edge,
-        glass_cy, gcz, angle
+        glass_cy, gcz, angle, base_z=base_h
       );
       // reflex OLED seat below the combiner, facing up the reflected ray
       oled_seat(opos, oled_pitch, oled_fp, oled_seatwall, oled_below, oled_above);
     }
     // display cavity cut from the whole fixture
     oled_cavity(opos, oled_pitch, oled_fp, oled_below, oled_above, oled_floor_inset);
+    // Clear the solid baseplate forward of the display footprint's world-Y edge.
+    oled_forward_clear(opos, oled_pitch, oled_fp, body_w, body_d, base_h, side_edge);
   }
 }
 
 // ── Gridfinity mount (minimal fixture only) ──────────────────
-// Puts the minimal alignment fixture on a skeletonized Gridfinity bin bottom
+// Puts the minimal alignment fixture on a Gridfinity bin bottom
 // (with magnet slots), so it clips onto a Gridfinity baseplate on the bench.
 // The bin bottom (from scad-common) is only stacking feet + an X-brace lattice
 // per cell — no solid floor — so a thin platform slab caps the feet and carries
@@ -252,18 +284,20 @@ module minimal_holder(base_h = 4.0) {
 // (which is itself too shallow to sit inside a single 42 mm cell), centred.
 gf_cols = 2; // Gridfinity cells across (X)
 gf_rows = 1; // Gridfinity cells deep (Y)
-gf_plat_t = 12.00; // platform slab: caps the skeletonized feet, seats the fixture
+gf_plat_t = 1.00; // platform slab: caps the feet, seats the fixture
 
 module minimal_holder_gridfinity() {
   gf_w = gf_cols * 42;
   gf_d = gf_rows * 42;
   dx = body_w / 2 - gf_w / 2; // centre the grid footprint under the fixture
   dy = body_d / 2 - gf_d / 2;
-  // skeletonized bin bottom + capping platform, centred beneath the fixture
+  // bin bottom + capping platform, centred beneath the fixture
   translate([dx, dy, 0]) {
     gridfinity_bin_bottom(
-      cols=gf_cols, rows=gf_rows,
-      magnets=true, skeletonize=true
+      cols=gf_cols,
+      rows=gf_rows,
+      magnets=true,
+      skeletonize=false
     );
     linear_extrude(gf_plat_t)
       offset(r=4) offset(delta=-4) square([gf_w, gf_d]);

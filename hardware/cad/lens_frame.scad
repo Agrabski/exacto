@@ -18,12 +18,14 @@
 
 // Frame outer dims derived from the lens block + wall (shared with the
 // assembly so the same formulas are never duplicated).
-function lens_frame_width(lens, wall)  = lens[1] + 2 * wall; // arm_w
-function lens_frame_depth(lens, wall)  = lens[2] + 2 * wall; // frame_y (glass normal)
+function lens_frame_width(lens, wall) = lens[1] + 2 * wall; // arm_w
+function lens_frame_depth(lens, wall) = lens[2] + 2 * wall; // frame_y (glass normal)
 function lens_frame_height(lens, wall) = lens[0] + 2 * wall; // frame_z (along tilt)
 
 module lens_frame(lens, wall, clearance) {
-  lw = lens[0]; lh = lens[1]; ltr = lens[3];
+  lw = lens[0];
+  lh = lens[1];
+  ltr = lens[3];
   frame_y = lens_frame_depth(lens, wall);
   frame_z = lens_frame_height(lens, wall);
 
@@ -78,7 +80,11 @@ module lens_frame(lens, wall, clearance) {
 // negative solids in lens_frame local coords.  Cut from the frame AND from
 // the connecting webs so nothing intrudes into the lens seat.
 module lens_negatives(lens, wall, clearance) {
-  lw = lens[0]; lh = lens[1]; lt = lens[2]; ltr = lens[3]; llip = lens[4];
+  lw = lens[0];
+  lh = lens[1];
+  lt = lens[2];
+  ltr = lens[3];
+  llip = lens[4];
   frame_y = lens_frame_depth(lens, wall);
 
   inner_hc = sqrt(ltr * ltr - (lw / 2) * (lw / 2));
@@ -134,20 +140,61 @@ module lens_negatives(lens, wall, clearance) {
 }
 
 // ── Glass frame at angle ─────────────────────────────────────
-// The lens_frame is centred in X; short connecting webs bridge from each
-// shroud side wall to the frame's rounded ends.  Webs live in a central Z
-// band (web_hz above/below the glass centreline) and only in the solid depth
-// BEHIND the glass pocket (the −Y half), so they never enter the clear window.
-module glass_frame_mount(lens, wall, clearance, body_w, side_edge,
-                         glass_cy, glass_cz, angle, arm_overlap = 3.0) {
+// The lens_frame is centred in X; connecting webs bridge from each shroud
+// side wall to the frame's rounded ends, running the FULL height of the
+// frame (web_hz = frame_z/2) so the wing reaches from the frame's top edge
+// down to its bottom edge — previously web_hz was a thin central band,
+// leaving the frame's lower half floating unsupported inside the shroud
+// opening.  (The side walls themselves are already solid full-height blocks
+// — see eotech_shroud — so what was missing was the visible wing/mullion
+// inside the window opening, not extra material buried in the wall.)  Webs
+// only occupy the solid depth BEHIND the glass pocket (the −Y half), so they
+// never enter the clear window.
+//
+// Because the web follows the frame's own tilt (its local Z axis), its
+// bottom edge sits a few mm above the true world floor even at full height —
+// a pair of small, genuinely-vertical (world-Z) columns close that last gap,
+// planted in the open span between the wall and the frame's edge (NOT inside
+// the wall itself, which is already solid — a column there would be buried
+// in existing material and invisible/structurally moot).
+module glass_frame_mount(
+  lens,
+  wall,
+  clearance,
+  body_w,
+  side_edge,
+  glass_cy,
+  glass_cz,
+  angle,
+  base_z,
+  arm_overlap = 3.0
+) {
   lt = lens[2];
-  arm_w   = lens_frame_width(lens, wall);
+  arm_w = lens_frame_width(lens, wall);
   frame_y = lens_frame_depth(lens, wall);
   frame_z = lens_frame_height(lens, wall);
 
-  web_hz = frame_z * 0.28; // half-height of the connecting web (Z band)
+  web_hz = frame_z / 2; // half-height of the connecting web (Z band) — full frame height
   web_dy = frame_y - (lt + clearance); // depth behind the pocket
   web_y0 = -frame_y / 2; // rear (-Y) face of the frame
+  theta = 90 - angle; // frame tilt from vertical (matches the rotate below)
+
+  // World Y/Z of two points just inside the web's solid near its bottom edge
+  // (local Z nudged up from -web_hz) and inset from each Y end (local Y
+  // nudged in from web_y0 / web_y0+web_dy) — both axes nudged so hull()'s
+  // tapered apex lands strictly inside real solid rather than merely
+  // touching a boundary face (a zero-volume "kiss" that CGAL keeps as a
+  // separate shell instead of fusing into the union).
+  ly_in1 = web_y0 + 0.5;
+  ly_in2 = web_y0 + web_dy - 0.5;
+  lz_anchor = -web_hz + 0.5;
+  col_y1 = glass_cy + ly_in1 * cos(theta) - lz_anchor * sin(theta);
+  col_z1 = glass_cz + ly_in1 * sin(theta) + lz_anchor * cos(theta);
+  col_y2 = glass_cy + ly_in2 * cos(theta) - lz_anchor * sin(theta);
+  col_z2 = glass_cz + ly_in2 * sin(theta) + lz_anchor * cos(theta);
+  col_pad = 2; // floor footprint padding beyond the anchor points, each side
+  col_w = 8; // column width — small, just enough to print solid
+
   translate([body_w / 2, glass_cy, glass_cz])
     rotate([90 - angle, 0, 0]) {
       translate([-arm_w / 2, -frame_y / 2, -frame_z / 2])
@@ -175,6 +222,20 @@ module glass_frame_mount(lens, wall, clearance, body_w, side_edge,
           lens_negatives(lens, wall, clearance);
       }
     }
+
+  // Small plumb columns, left and right, closing the last gap between the
+  // web's (tilted) underside and the true world floor — hulled from the
+  // web's two true anchor corners down to a padded footprint on the floor.
+  if (col_z1 > base_z || col_z2 > base_z) {
+    for (x0 = [side_edge, body_w - side_edge - col_w]) {
+      hull() {
+        translate([x0, col_y1, col_z1]) cube([col_w, 0.1, 3]);
+        translate([x0, col_y2, col_z2]) cube([col_w, 0.1, 3]);
+        translate([x0, min(col_y1, col_y2) - col_pad, base_z])
+          cube([col_w, abs(col_y2 - col_y1) + 2 * col_pad, 0.1]);
+      }
+    }
+  }
 }
 
 // ── Demo (renders only when this file is opened directly) ────
