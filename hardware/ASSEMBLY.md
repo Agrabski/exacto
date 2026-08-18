@@ -25,7 +25,7 @@ Export each by setting `part=` at the top of `sight_housing.scad` (or
 | `part` | Component | Qty | Notes |
 |--------|-----------|-----|-------|
 | `bottom` | Bottom part — display holder + forward electronics box + **fixed** Picatinny jaw | 1 | Hosts the OLED pocket, cable channel, and all brass inserts except the lid/combiner |
-| `top` | Top part — optics shroud + beamsplitter mount + combiner mount | 1 | Holds both optical elements |
+| `top` | Top part — optics shroud + Fresnel slab + beamsplitter mount + combiner mount | 1 | Holds every optical element |
 | `bar` | Picatinny clamp bar (removable left jaw) | 1 | Pulled in by 2 cross-bolts |
 | `lid` | Forward-box top lid | 1 | Screws onto the box bosses |
 
@@ -49,6 +49,7 @@ for checking fit; it is not a printable export.
 |------|------|-----|-------|
 | Plate beamsplitter, 30/70 (R/T) | 32 × 30 mm, 2.0 mm thick | 1 | Flat sheet. Drops into the angled (45°) frame pocket from the front (+Y) face |
 | Collimating combiner lens | 34 × 24 mm stadium (rounded R16.97 ends), 2.74 mm thick | 1 | The previously-used lens ([`lens/lense.avif`](lens/lense.avif)). Sits vertical; drops into the front cartridge pocket from the front (+Y) face |
+| Fresnel collimator sheet | 26 × 15 mm, ~1 mm thick | 1 | Flat sheet, cut to size from a Fresnel magnifier card. Sits in the optics head between the OLED and the combiner, square to the reflected chief ray (parallel to the tilted display), and slides into its slot from the **rear** (eye-side) face. Clear aperture 23.3 × 12.3 mm, covering the 0.96" OLED's 21.7 × 10.9 mm active area |
 
 Both are retained by friction fit in their pockets **plus adhesive** (no set
 screws — the merged side arms bury any screw access). A ~1.5 mm rim laps each
@@ -60,6 +61,25 @@ A true cylindrical R≈120 mm partial-mirror combiner is not a common catalog
 part, so the optics are the part that drives sourcing. Cheap, hobby-tool
 options below; all are knife/scorer/heat-gun workable with no custom optics
 order (total optics cost ~$15–30).
+
+**Fresnel sheet (the collimator):**
+- Cut it from a cheap PMMA/PVC Fresnel magnifier card (the credit-card or
+  page-magnifier kind, ~0.5–1 mm thick) with scissors or a knife; set
+  `fresnel[2]` in the model to the thickness you actually have.
+- Mount it **grooved face up**, toward the combiner.
+- `fresnel_gap` is the on-axis distance from the OLED's lit surface to the
+  sheet, so it wants to be the sheet's **back focal length** to throw the
+  reticle to infinity. Be aware how sharp that target is at these short focal
+  lengths: at f = 8 mm a 0.2 mm error — ordinary print and joint tolerance —
+  puts the virtual image at ~0.3 m rather than at infinity. A longer-focus
+  sheet is far more forgiving (f = 30 mm, same error → ~4.5 m) but needs more
+  room than `oled_dist` currently leaves; raise `oled_dist` to buy it, which
+  slides the display further down the chief ray without disturbing the fold.
+- The slab sits in the lower part of the window, so it costs some sight
+  picture: at the default 7 mm gap the bottom of the view rises from z ≈ 30 mm
+  (the shroud's front lip) to z ≈ 32.5 mm. A smaller gap costs less; the model
+  asserts before the slab can reach the front lip. `fresnel_fitted = false`
+  removes it entirely and restores the previous optics head exactly.
 
 **Beamsplitter (flat — the easy one):**
 - **Best match:** 70/30 (or 30/70) **teleprompter glass** — dielectric
@@ -180,6 +200,10 @@ With a soldering iron set for brass inserts, press into the **bottom part**:
 Keep inserts square to the bore; let them cool before loading.
 
 ### Step 2 — Bond the optics into the top part
+- Slide the **Fresnel sheet** into the slab's slot from the **rear** face,
+  grooved side toward the combiner, until it butts against the closed front
+  end; dab adhesive on the rim. Rims on both faces capture it, and the slab's
+  tilt means gravity holds it against the closed end.
 - Seat the **beamsplitter** sheet into its 45° pocket from the front face;
   dab adhesive on the rim. It should sit flush under the retaining lip.
 - Seat the **collimating combiner lens** into its vertical stadium pocket

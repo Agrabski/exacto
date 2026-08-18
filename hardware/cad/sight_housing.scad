@@ -10,6 +10,7 @@
 //                  + clamp.  The OLED rides on the body top in a tilted reflex
 //                  seat, angled so the combiner reflects it up into the eye.
 //   top_part()     optics head = eotech_shroud() + glass_frame_mount() (combiner)
+//                  + fresnel_frame() (the collimator sheet, on the chief ray)
 //   clamp_bar()    the removable Picatinny left jaw, in assembled position
 //   box_lid()      the forward box's screw-on top lid
 //
@@ -18,6 +19,7 @@
 //   shroud.scad          eotech_shroud
 //   lens_frame.scad      lens_frame / lens_negatives / glass_frame_mount
 //   oled.scad            display_pocket — Waveshare 0.96" OLED pocket + M2 bores
+//   fresnel.scad         fresnel_frame / fresnel_negatives — Fresnel collimator
 //   electronics_box.scad front_box / cable_channel / box_lid(+inserts) / engrave
 //   picatinny.scad       MIL-STD-1913 two-part clamp
 //   screw_mounts.scad    reusable M2/M3 insert + clearance + counterbore cutters
@@ -28,6 +30,10 @@
 //          in a tilted reflex seat below the combiner, facing up the reflected
 //          chief ray so the combiner throws its image to the eye.
 // Lens:    24.00 × 34.00 mm, 2.74 mm thick, arcs R16.97 both ends
+// Fresnel: optional flat collimator sheet in the optics head, square to the
+//          reflected chief ray, in the space `oled_dist` already reserves
+//          between the display and the combiner.  See the `fresnel*` knobs
+//          below; nothing else in the sight moves when it is fitted.
 // ============================================================
 use <picatinny.scad>
 use <screw_mounts.scad>
@@ -36,6 +42,7 @@ use <shroud.scad>
 use <lens_frame.scad>
 use <electronics_box.scad>
 use <oled.scad>
+use <fresnel.scad>
 use <scad-common/gridfinity_bin_bottom.scad>
 
 // ┌─────────────────────────────────────────────────────────┐
@@ -103,6 +110,34 @@ oled_floor_inset = 4.50; // floor rim kept around the cut (holds the M2 bosses)
 oled_ray = [0, cos(2 * angle), -sin(2 * angle)];
 oled_pitch = 90 - 2 * angle; // OLED tilt from horizontal (faces up the ray)
 oled_pos = [body_w / 2, glass_cy, glass_cz] + oled_dist * oled_ray;
+oled_screen_z = 1.60; // PCB front (lit) face above the pocket floor (oled.scad pcb_t)
+
+// ── Fresnel collimator sheet (display → combiner, on the chief ray) ──
+// A flat Fresnel sheet, cut to size, held in the OPTICS HEAD on a slab tilted
+// onto the reflected chief ray — square to the display, so `fresnel_gap` is a
+// true on-axis distance from the lit surface.  Nothing else moves: the slab
+// grows into the space `oled_dist` already leaves between the two optics.
+//
+// `fresnel_gap` wants to be the sheet's back focal length to throw the reticle
+// to infinity, and at these short focal lengths that is a sharp target — see
+// the note in fresnel.scad.  The room here runs out around 9 mm; raise
+// `oled_dist` for a longer-focus sheet (it slides the display down the ray
+// without disturbing the fold).
+fresnel_fitted = true;           // false = optics head exactly as before
+fresnel = [26.00, 15.00, 1.00];  // [w (X), d (Y), t] of the sheet, cut to size
+fresnel_gap = 7.00;              // lit surface → sheet underside, along the ray
+fresnel_lip = 1.50;              // rim lapping the sheet's edge (aperture inset)
+fresnel_wall = 2.00;             // slab wall around the sheet slot
+
+// The slab leans forward as it rises, so its top-front edge is what runs out
+// of room first — it has to stay behind the shroud's front lip.  Growing the
+// gap or the sheet's depth walks it forward; this catches the overrun instead
+// of letting the two halves quietly interfere.
+fresnel_front_y = oled_pos[1]
+  + fresnel_slab_d(fresnel, clearance, fresnel_wall) / 2 * cos(oled_pitch)
+  - fresnel_slab_z1(oled_screen_z, fresnel_gap, fresnel, clearance) * sin(oled_pitch);
+assert(!fresnel_fitted || fresnel_front_y < body_d - shroud_wall - 0.5,
+       "Fresnel slab reaches the shroud's front lip — reduce fresnel_gap or fresnel[1]");
 
 // Shroud height — auto-sized to enclose the tilted glass frame's top tip.
 frame_tip_z = glass_cz + (frame_z / 2) * sin(angle) + (frame_y / 2) * cos(angle);
@@ -227,8 +262,15 @@ module top_part() {
         lens, lens_wall, clearance, body_w, side_edge,
         glass_cy, glass_cz, angle, base_z=body_height
       );
+      // Fresnel collimator slab, on the chief ray between OLED and combiner.
+      if (fresnel_fitted)
+        fresnel_frame(fresnel, clearance, fresnel_wall, body_w, side_edge,
+                      oled_pos, oled_pitch, oled_screen_z, fresnel_gap);
     }
     joint_clearance(body_w, side_screw_y, skirt_t);
+    if (fresnel_fitted)
+      fresnel_negatives(fresnel, clearance, fresnel_wall, fresnel_lip,
+                        oled_pos, oled_pitch, oled_screen_z, fresnel_gap);
   }
 }
 
@@ -267,9 +309,16 @@ module minimal_holder(base_h = 4.0) {
       );
       // reflex OLED seat below the combiner, facing up the reflected ray
       oled_seat(opos, oled_pitch, oled_fp, oled_seatwall, oled_below, oled_above);
+      // Fresnel collimator slab, at the same on-axis gap above the screen
+      if (fresnel_fitted)
+        fresnel_frame(fresnel, clearance, fresnel_wall, body_w, side_edge,
+                      opos, oled_pitch, oled_screen_z, fresnel_gap);
     }
     // display cavity cut from the whole fixture
     oled_cavity(opos, oled_pitch, oled_fp, oled_below, oled_above, oled_floor_inset);
+    if (fresnel_fitted)
+      fresnel_negatives(fresnel, clearance, fresnel_wall, fresnel_lip,
+                        opos, oled_pitch, oled_screen_z, fresnel_gap);
     // Clear the solid baseplate forward of the display footprint's world-Y edge.
     oled_forward_clear(opos, oled_pitch, oled_fp, body_w, body_d, base_h, side_edge);
   }
