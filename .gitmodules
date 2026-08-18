@@ -1,3 +1,15 @@
 [submodule "hardware/cad/scad-common"]
 	path = hardware/cad/scad-common
 	url = https://github.com/Agrabski/scad-common.git
+[submodule "hardware/cad/mlok"]
+	path = hardware/cad/mlok
+	url = https://github.com/shadow-w0rx/Mlok-Openscad.git
+[submodule "hardware/cad/BOSL2"]
+	path = hardware/cad/BOSL2
+	url = https://github.com/BelfrySCAD/BOSL2.git
+[submodule "hardware/cad/arduino-mount"]
+	path = hardware/cad/arduino-mount
+	url = https://github.com/kellyegan/OpenSCAD-Arduino-Mounting-Library.git
+[submodule "hardware/cad/pin_connectors"]
+	path = hardware/cad/pin_connectors
+	url = https://github.com/tbuser/pin_connectors.git

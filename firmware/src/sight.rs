@@ -15,7 +15,7 @@ pub struct Sight {
 
 impl Sight {
     pub fn point_of_aim(&self) -> Point {
-        Point::new((64 + self.x_zero) as i32, (96 / 2 + self.y_zero) as i32)
+        Point::new((64 + self.x_zero) as i32, (48 / 2 + self.y_zero) as i32)
     }
 
     pub fn calculated_point_of_impact(&self) -> Point {

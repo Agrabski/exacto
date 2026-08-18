@@ -40,7 +40,7 @@ fn main() -> ! {
         x_zero: 0,
         y_zero: 0,
         battery_power: 15,
-        range: 33,
+        range: 30,
         last_range: 0,
         drift: Point::default(),
         configuration: CalculatorConfiguration::default(),
@@ -181,7 +181,7 @@ where
     write_value(
         interface,
         sight.battery_power as u16,
-        Point::new(0, 90),
+        Point::new(0, 0),
         &mut buffer,
     );
     draw_reticle(interface, sight);

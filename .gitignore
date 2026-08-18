@@ -1,4 +1,5 @@
 /target
 *.stl
 sight_render.png
+hardware/cad/out/
 hardware/pcb/electronics/.history
