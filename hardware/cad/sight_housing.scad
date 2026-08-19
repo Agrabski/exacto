@@ -174,6 +174,28 @@ module oled_seat(pos, pitch, fp, seatwall, below, above) {
         cube([seat, seat, below + above]);
 }
 
+// Clearance for the seat in the MATING half.  The top part descends straight
+// down onto the bottom, so it must carry no material anywhere below the seat
+// within the seat's footprint — that is the seat swept straight down.  The
+// shroud's rear lip does exactly that as drawn, and holds the two halves
+// ~4 mm apart at the seam; this cuts the lip's inner-lower edge back to a
+// chamfer that follows the seat's tilt, leaving it continuous wall to wall.
+// `clear` is a non-contact gap, so it is a little looser than a fitted joint.
+module oled_seat_clear(pos, pitch, fp, seatwall, below, above, clear = 0.40,
+                       drop = 40) {
+  seat = fp + 2 * (seatwall + clear);
+  module _block() {
+    translate(pos)
+      rotate([pitch, 0, 0])
+        translate([-seat / 2, -seat / 2, -(below + clear)])
+          cube([seat, seat, below + above + 2 * clear]);
+  }
+  hull() {
+    _block();
+    translate([0, 0, -drop]) _block();
+  }
+}
+
 // The display cavity, cut from the whole bottom part:
 //   • display_pocket() — the PCB recess (Z 0..~2) + four M2 insert bores,
 //   • up-clear         — removes any body that rises above the seat top into the
@@ -238,8 +260,8 @@ module bottom_part() {
     oled_cavity(oled_pos, oled_pitch, oled_fp, oled_below, oled_above, oled_floor_inset);
     // Clear the solid baseplate forward of the display footprint's world-Y edge.
     oled_forward_clear(oled_pos, oled_pitch, oled_fp, body_w, body_d, body_height, side_edge);
-    side_rebates(body_w, body_d, body_height, skirt_t, lap_h);
-    joint_inserts(body_w, side_screw_y, skirt_t);
+    side_rebates(body_w, body_d, body_height, skirt_t, lap_h, clearance);
+    joint_inserts(body_w, side_screw_y, skirt_t, fit = clearance);
     cable_channel(body_w, body_d, body_height, box_y0, box_y1, disp_pcb_t(), clearance);
     box_lid_inserts(body_w, box_y0, box_len, box_h);
     if (engrave) right_side_engrave(body_w, engrave_y, engrave_z, engrave_text);
@@ -271,6 +293,9 @@ module top_part() {
     // Lens seat + its front insertion channel, cut from the WHOLE part: the
     // shroud's front lip otherwise stands in the seat's mouth.
     glass_seat_clear(lens, lens_wall, clearance, body_w, glass_cy, glass_cz, angle);
+    // Keep the descent path onto the OLED seat clear (see oled_seat_clear).
+    oled_seat_clear(oled_pos, oled_pitch, oled_fp, oled_seatwall, oled_below,
+                    oled_above);
     if (fresnel_fitted)
       fresnel_negatives(fresnel, clearance, fresnel_wall, fresnel_lip,
                         oled_pos, oled_pitch, oled_screen_z, fresnel_gap);

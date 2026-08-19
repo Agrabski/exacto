@@ -35,11 +35,23 @@ for checking fit; it is not a printable export.
 ### Print recommendations
 - Material: PLA/PETG (PETG or ABS/ASA if the sight will see sun/heat).
 - Layer height ≤ 0.2 mm around the optic pockets for a clean friction fit.
-- Suggested orientation: print **bottom** and **top** on their flat seam
-  face (z = 20 mm split plane) so the lap joint and insert bores come out
-  true; print the **lid** flat; print the **bar** on its outer flat face.
-- The combiner pocket has a shallow (~1 mm) cylindrical curve — no supports
-  needed, but don't over-extrude or the optic won't seat flat.
+- Suggested orientation: neither half can rest on the seam plane — the top
+  part's skirts hang 14 mm below it and the bottom part's box walls stand
+  7.5 mm above it. Print the **top** on its **front face** (34 mm tall; least
+  overhang of the orientations measured, ~832 mm² vs ~2968 mm² printed as it
+  sits, the lens insertion channel comes out vertical and self-supporting, and
+  supports pull up and out through the rear window). Print the **bottom** as
+  it sits, **rail down** — inverting it buries a ~3817 mm² ceiling inside the
+  electronics box. Print the **lid** flat and the **bar** on its outer flat
+  face.
+- The optics head's internals (combiner frame, its webs, the Fresnel slab)
+  are suspended inside the shroud, so supports are unavoidable. Clear every
+  trace out of the lens pocket, its front channel and the Fresnel slot before
+  fitting the optics — residue there is what stops the optics seating.
+- Fits are cut for FDM, not for a nominal fit: the lap joint has 0.30 mm of
+  slack on the skirt's inner face, and both optic pockets carry clearance on
+  every axis. Don't scale the parts, and keep first-layer squish in check —
+  elephant's foot on the seam faces eats the joint clearance directly.
 
 ---
 

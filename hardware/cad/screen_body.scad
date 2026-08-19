@@ -97,20 +97,30 @@ module screen_body(body_w, body_d, body_height, side_edge, wall, clearance,
 // horizontal M3 screws (2 per side, low — under the PCB) pin and clamp them.
 
 // Rebate the bottom part's outer side faces so the skirts sit flush.
-module side_rebates(body_w, body_d, body_height, skirt_t, lap_h) {
-  translate([-0.1, -0.1, body_height - lap_h])
-    cube([skirt_t + 0.1, body_d + 0.2, lap_h + 0.2]);
-  translate([body_w - skirt_t, -0.1, body_height - lap_h])
-    cube([skirt_t + 0.1, body_d + 0.2, lap_h + 0.2]);
+//
+// `fit` is the joint clearance: the rebate is cut that much deeper than the
+// skirt is thick, and that much lower than the skirt is tall.  Without it the
+// rebate is exactly the skirt's size and the printed halves cannot close —
+// FDM parts run oversize, and a 3.00 mm skirt will not enter a 3.00 mm slot.
+// The skirt's OUTER face still lands flush with the body's side; the slack
+// sits on its inner face, and under its bottom edge so the seam faces (not the
+// skirt's end) are what set the halves' height.
+module side_rebates(body_w, body_d, body_height, skirt_t, lap_h, fit = 0.30) {
+  translate([-0.1, -0.1, body_height - lap_h - fit])
+    cube([skirt_t + fit + 0.1, body_d + 0.2, lap_h + fit + 0.2]);
+  translate([body_w - skirt_t - fit, -0.1, body_height - lap_h - fit])
+    cube([skirt_t + fit + 0.1, body_d + 0.2, lap_h + fit + 0.2]);
 }
 
 // M3 brass-insert bores in the thick bottom side edges (open at the rebate
 // face), low and in solid material below the PCB.
-module joint_inserts(body_w, side_screw_y, skirt_t, joint_screw_z = 9.0) {
+// `fit` must match side_rebates() — the bores start at the rebate's new face,
+// so the insert still sits flush in a full-depth pocket.
+module joint_inserts(body_w, side_screw_y, skirt_t, joint_screw_z = 9.0, fit = 0.30) {
   for (y = side_screw_y) {
-    translate([skirt_t, y, joint_screw_z]) // left edge, bore +X
+    translate([skirt_t + fit, y, joint_screw_z]) // left edge, bore +X
       rotate([0, -90, 0]) insert_hole("M3");
-    translate([body_w - skirt_t, y, joint_screw_z]) // right edge, bore -X
+    translate([body_w - skirt_t - fit, y, joint_screw_z]) // right edge, bore -X
       rotate([0, 90, 0]) insert_hole("M3");
   }
 }

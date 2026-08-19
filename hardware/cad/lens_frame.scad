@@ -106,17 +106,24 @@ module lens_pocket(lens, wall, clearance) {
   pkt = lt + clearance;
   pky = frame_y - pkt;
 
+  // The glass's 24 mm dimension needs slack too.  The thickness and the end
+  // arcs already carry `clearance`; without the same on the height the pocket
+  // is exactly the glass's size, and a printed one comes out undersize — the
+  // optic will not go in.  Costs clearance/2 off the frame's top/bottom rim.
+  pz0 = wall - clearance / 2;
+  pzh = lw + clearance;
+
   // ── glass pocket: straight section ────────────────────────
-  translate([inner_lx, pky, wall])
-    cube([inner_rx - inner_lx, pkt + 0.1, lw]);
+  translate([inner_lx, pky, pz0])
+    cube([inner_rx - inner_lx, pkt + 0.1, pzh]);
 
   // ── glass pocket: left arc cap ────────────────────────────
   intersection() {
     translate([p_lcx, frame_y - pkt / 2, p_cz])
       rotate([90, 0, 0])
         cylinder(r=p_r, h=pkt + 0.2, center=true, $fn=60);
-    translate([-(p_r + 1), -0.1, wall])
-      cube([p_r + 1 + inner_lx, frame_y + 0.2, lw]);
+    translate([-(p_r + 1), -0.1, pz0])
+      cube([p_r + 1 + inner_lx, frame_y + 0.2, pzh]);
   }
 
   // ── glass pocket: right arc cap ───────────────────────────
@@ -124,8 +131,8 @@ module lens_pocket(lens, wall, clearance) {
     translate([p_rcx, frame_y - pkt / 2, p_cz])
       rotate([90, 0, 0])
         cylinder(r=p_r, h=pkt + 0.2, center=true, $fn=60);
-    translate([inner_rx, -0.1, wall])
-      cube([p_r + 1, frame_y + 0.2, lw]);
+    translate([inner_rx, -0.1, pz0])
+      cube([p_r + 1, frame_y + 0.2, pzh]);
   }
 
 }
