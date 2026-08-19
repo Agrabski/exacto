@@ -80,11 +80,18 @@ module lens_frame(lens, wall, clearance) {
 // negative solids in lens_frame local coords.  Cut from the frame AND from
 // the connecting webs so nothing intrudes into the lens seat.
 module lens_negatives(lens, wall, clearance) {
+  lens_pocket(lens, wall, clearance);
+  lens_window(lens, wall, clearance);
+}
+
+// The glass pocket alone — the stadium prism the lens actually occupies, open
+// at the +Y face.  Split out from lens_negatives() so the insertion channel
+// can sweep it without dragging the see-through window along.
+module lens_pocket(lens, wall, clearance) {
   lw = lens[0];
   lh = lens[1];
   lt = lens[2];
   ltr = lens[3];
-  llip = lens[4];
   frame_y = lens_frame_depth(lens, wall);
 
   inner_hc = sqrt(ltr * ltr - (lw / 2) * (lw / 2));
@@ -121,6 +128,26 @@ module lens_negatives(lens, wall, clearance) {
       cube([p_r + 1, frame_y + 0.2, lw]);
   }
 
+}
+
+// The see-through window alone — open through BOTH faces, inset by the lens's
+// `lip` so a rim laps the glass on each side.
+module lens_window(lens, wall, clearance) {
+  lw = lens[0];
+  lh = lens[1];
+  lt = lens[2];
+  ltr = lens[3];
+  llip = lens[4];
+  frame_y = lens_frame_depth(lens, wall);
+
+  inner_hc = sqrt(ltr * ltr - (lw / 2) * (lw / 2));
+  p_lcx = wall + ltr;
+  p_rcx = wall + lh - ltr;
+  p_cz = wall + lw / 2;
+  p_r = ltr + clearance / 2;
+  inner_lx = p_lcx - inner_hc;
+  inner_rx = p_rcx + inner_hc;
+
   // ── see-through window — open through BOTH faces ──────────
   wr = p_r - llip; // inset arc radius for the window
   translate([inner_lx, -0.1, wall + llip])
@@ -136,6 +163,49 @@ module lens_negatives(lens, wall, clearance) {
       rotate([90, 0, 0]) cylinder(r=wr, h=frame_y + 0.2, center=true, $fn=60);
     translate([inner_rx, -0.1, wall + llip])
       cube([wr + 1, frame_y + 0.2, lw - 2 * llip]);
+  }
+}
+
+// ── Glass seat clearance + front insertion channel ───────────
+// In ASSEMBLY coordinates (not frame-local): the lens seat, plus the pocket
+// swept straight out the FRONT (+Y), so the glass can be pushed in
+// horizontally through the front aperture instead of having to be threaded in
+// along its own tilted normal.
+//
+// Subtract this from the WHOLE top part, not just the frame.  The frame is
+// deliberately parked 0.5 mm behind body_d, which puts the seat's mouth inside
+// the shroud's front lip — cutting only the frame and its webs leaves the lip
+// standing in the pocket, and the glass cannot seat at all, let alone slide in.
+// The channel notches the lip's upper half across the lens width; the lip's
+// lower half runs wall to wall untouched.
+//
+// The sweep is horizontal, so gravity acts square across the channel and
+// cannot walk the glass back out of it; adhesive on the rim does the rest.
+//   travel : how far forward to sweep.  Needs to carry the pocket's REARMOST
+//            corner past the front face; the default clears body_d for the
+//            stock geometry.
+module glass_seat_clear(lens, wall, clearance, body_w, glass_cy, glass_cz,
+                        angle, travel = 25) {
+  arm_w = lens_frame_width(lens, wall);
+  frame_y = lens_frame_depth(lens, wall);
+  frame_z = lens_frame_height(lens, wall);
+
+  module _seat_local() {
+    translate([body_w / 2, glass_cy, glass_cz])
+      rotate([90 - angle, 0, 0])
+        translate([-arm_w / 2, -frame_y / 2, -frame_z / 2])
+          children();
+  }
+
+  // The seat itself (pocket + window), so nothing outside the frame intrudes.
+  _seat_local() lens_negatives(lens, wall, clearance);
+
+  // Insertion channel: the pocket swept forward.  The pocket is a convex
+  // stadium prism, so hull() of the two ends is exactly the swept volume.
+  hull() {
+    _seat_local() lens_pocket(lens, wall, clearance);
+    translate([0, travel, 0])
+      _seat_local() lens_pocket(lens, wall, clearance);
   }
 }
 
@@ -227,13 +297,22 @@ module glass_frame_mount(
   // web's (tilted) underside and the true world floor — hulled from the
   // web's two true anchor corners down to a padded footprint on the floor.
   if (col_z1 > base_z || col_z2 > base_z) {
-    for (x0 = [side_edge, body_w - side_edge - col_w]) {
-      hull() {
-        translate([x0, col_y1, col_z1]) cube([col_w, 0.1, 3]);
-        translate([x0, col_y2, col_z2]) cube([col_w, 0.1, 3]);
-        translate([x0, min(col_y1, col_y2) - col_pad, base_z])
-          cube([col_w, abs(col_y2 - col_y1) + 2 * col_pad, 0.1]);
+    // The columns reach under the frame's ends, where the glass pocket also
+    // lives, so they get the same cavities cut from them as the webs do —
+    // otherwise they clip the glass's lower corners and it cannot seat.
+    difference() {
+      for (x0 = [side_edge, body_w - side_edge - col_w]) {
+        hull() {
+          translate([x0, col_y1, col_z1]) cube([col_w, 0.1, 3]);
+          translate([x0, col_y2, col_z2]) cube([col_w, 0.1, 3]);
+          translate([x0, min(col_y1, col_y2) - col_pad, base_z])
+            cube([col_w, abs(col_y2 - col_y1) + 2 * col_pad, 0.1]);
+        }
       }
+      translate([body_w / 2, glass_cy, glass_cz])
+        rotate([90 - angle, 0, 0])
+          translate([-arm_w / 2, -frame_y / 2, -frame_z / 2])
+            lens_negatives(lens, wall, clearance);
     }
   }
 }

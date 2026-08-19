@@ -48,7 +48,7 @@ for checking fit; it is not a printable export.
 | Item | Size | Qty | Notes |
 |------|------|-----|-------|
 | Plate beamsplitter, 30/70 (R/T) | 32 × 30 mm, 2.0 mm thick | 1 | Flat sheet. Drops into the angled (45°) frame pocket from the front (+Y) face |
-| Collimating combiner lens | 34 × 24 mm stadium (rounded R16.97 ends), 2.74 mm thick | 1 | The previously-used lens ([`lens/lense.avif`](lens/lense.avif)). Sits vertical; drops into the front cartridge pocket from the front (+Y) face |
+| Collimating combiner lens | 34 × 24 mm stadium (rounded R16.97 ends), 2.74 mm thick | 1 | The previously-used lens ([`lens/lense.avif`](lens/lense.avif)). Sits tilted in the frame; **slides straight in horizontally from the front (+Y) face** — the model cuts a channel for it, notching the upper half of the shroud's front lip across the lens width. Its pocket is also cut from the whole optics head, so no shroud material stands in the seat |
 | Fresnel collimator sheet | 26 × 15 mm, ~1 mm thick | 1 | Flat sheet, cut to size from a Fresnel magnifier card. Sits in the optics head between the OLED and the combiner, square to the reflected chief ray (parallel to the tilted display), and slides into its slot from the **rear** (eye-side) face. Clear aperture 23.3 × 12.3 mm, covering the 0.96" OLED's 21.7 × 10.9 mm active area |
 
 Both are retained by friction fit in their pockets **plus adhesive** (no set
@@ -204,10 +204,14 @@ Keep inserts square to the bore; let them cool before loading.
   grooved side toward the combiner, until it butts against the closed front
   end; dab adhesive on the rim. Rims on both faces capture it, and the slab's
   tilt means gravity holds it against the closed end.
+- Slide the **collimating combiner lens** straight back into its frame through
+  the notch in the front lip, until it beds against the retaining rim on the
+  far face; dab adhesive on the rim. The channel is horizontal and the lens is
+  tilted, so gravity acts square across it and cannot walk the lens back out.
+  Do this with the two halves apart — with the forward box in place, the top of
+  its rear wall overlaps the last ~1.6 mm of the lens's travel.
 - Seat the **beamsplitter** sheet into its 45° pocket from the front face;
   dab adhesive on the rim. It should sit flush under the retaining lip.
-- Seat the **collimating combiner lens** into its vertical stadium pocket
-  from the front (+Y) face; it sits flush under the rear retaining rim. Bond.
 - Let the adhesive fully cure before further handling.
 
 ### Step 3 — Fit and wire the display

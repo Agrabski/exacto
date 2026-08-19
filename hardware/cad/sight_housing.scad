@@ -268,6 +268,9 @@ module top_part() {
                       oled_pos, oled_pitch, oled_screen_z, fresnel_gap);
     }
     joint_clearance(body_w, side_screw_y, skirt_t);
+    // Lens seat + its front insertion channel, cut from the WHOLE part: the
+    // shroud's front lip otherwise stands in the seat's mouth.
+    glass_seat_clear(lens, lens_wall, clearance, body_w, glass_cy, glass_cz, angle);
     if (fresnel_fitted)
       fresnel_negatives(fresnel, clearance, fresnel_wall, fresnel_lip,
                         oled_pos, oled_pitch, oled_screen_z, fresnel_gap);
@@ -316,6 +319,8 @@ module minimal_holder(base_h = 4.0) {
     }
     // display cavity cut from the whole fixture
     oled_cavity(opos, oled_pitch, oled_fp, oled_below, oled_above, oled_floor_inset);
+    // Same lens seat + front insertion channel as the full optics head.
+    glass_seat_clear(lens, lens_wall, clearance, body_w, glass_cy, gcz, angle);
     if (fresnel_fitted)
       fresnel_negatives(fresnel, clearance, fresnel_wall, fresnel_lip,
                         opos, oled_pitch, oled_screen_z, fresnel_gap);
