@@ -10,6 +10,8 @@
 //   fresnel_negatives(...)  the matching cuts: the sheet slot (open at the REAR
 //                           face, so the sheet slides in from the eye side) and
 //                           the clear aperture through the rims either side.
+//   fresnel_clear(...)      clearance for the slab in the MATING half — the
+//                           slab swept straight UP, i.e. its descent path.
 //
 // It rides in the TOP part, not on the OLED seat: the board is dropped into its
 // seat through exactly the space the sheet occupies, so anything mounted there
@@ -93,4 +95,39 @@ module fresnel_negatives(fresnel, clearance, wall, lip, pos, pitch, screen_z, ga
       translate([-(pw / 2 - lip), -(pd / 2 - lip), z0 - 0.1])
         cube([pw - 2 * lip, pd - 2 * lip, z1 - z0 + 0.2]);
     }
+}
+
+// ── Slab clearance in the mating half ────────────────────────
+// The slab leans forward far enough that its front-LOWER edge finishes below
+// the seam, inside the half underneath.  Only the middle of that overlap is
+// already open: the display cavity's up-clear is `oled_fp` wide, and the slab
+// runs the full body width, so a wedge of it buries itself in the lower half
+// out at both ends (~89 mm3, up to 1.8 mm deep, in the stock geometry).
+//
+// The optics head descends straight down (-Z) onto the lower half, so every
+// point of the slab sweeps the ray above its final position on the way in.
+// That swept volume — the slab grown by `clear` and hulled with itself raised
+// by `rise` — is what the lower half has to be free of.  Sweeping UP, not
+// down: this is the descent path, the mirror of oled_seat_clear(), which
+// sweeps the seat DOWN because the seat belongs to the half underneath.
+//
+// `embed` must match fresnel_frame(): the slab reaches that far into the side
+// walls, and the wedge that has to clear reaches with it.
+module fresnel_clear(fresnel, clearance, wall, body_w, side_edge,
+                     pos, pitch, screen_z, gap, embed = 1.0,
+                     clear = 0.40, rise = 40) {
+  sd = fresnel_slab_d(fresnel, clearance, wall) + 2 * clear;
+  z0 = fresnel_slab_z0(screen_z, gap) - clear;
+  z1 = fresnel_slab_z1(screen_z, gap, fresnel, clearance) + clear;
+  x0 = -(body_w / 2 - side_edge + embed + clear);
+  module _slab() {
+    translate(pos)
+      rotate([pitch, 0, 0])
+        translate([x0, -sd / 2, z0])
+          cube([-2 * x0, sd, z1 - z0]);
+  }
+  hull() {
+    _slab();
+    translate([0, 0, rise]) _slab();
+  }
 }

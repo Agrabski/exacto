@@ -5,24 +5,27 @@
 //                          the optics head, with 4 inside-corner lid bosses.
 //   cable_channel(...)     under-PCB cable run + plug opening (negative geo).
 //   box_lid_inserts(...)   M3 heat-set bores down into the lid bosses (cutter).
-//   box_lid(...)           the removable top lid, counterbored for its screws.
+//   box_lid(...)           the removable top lid, countersunk for its screws.
 //   right_side_engrave(...) label cut into the box's +X face (cutter).
 //
 // The box envelope (body_w, box_y0, box_len, box_h) is passed in; wall/boss/
 // fastener/cable specifics are file-level intrinsics.  The lid-boss grid and
 // wall-top height are file-level FUNCTIONS so front_box, box_lid_inserts and
 // box_lid stay consistent by construction.  Fastener bores come from
-// screw_mounts.scad.
+// scad-common/screw_mounts.scad.
 // ============================================================
-use <screw_mounts.scad>
+use <scad-common/screw_mounts.scad>
 
 // ── Box intrinsics ───────────────────────────────────────────
 box_wall = 2.50;        // wall / floor thickness
 lid_t = 2.50;           // top-lid thickness
 box_boss_r = 4.50;      // lid screw-boss radius (inside corners)
-box_screw_clear = 3.40; // M3 lid-screw clearance (in the lid)
-box_head_d = 6.00;      // M3 lid-screw head counterbore dia
-box_head_h = 3.00;      // counterbore depth
+// Lid screws are M3 COUNTERSUNK flat heads.  A socket cap cannot work here:
+// its head is 3.0 mm tall and the lid is only lid_t thick, so the counterbore
+// swallowed the whole lid and left the head nothing at all to bear on.  The
+// 90 deg countersink is sized off screw_mounts' own ISO 7046 table (M3 dk =
+// 5.6), so it sinks 1.10 mm and leaves 1.40 mm of shank bore beneath it.
+box_screw_fit = 0.40;   // added to the M3 body dia -> ø3.40 free-fit shank
 cable_w = 14.00;        // under-PCB cable channel width
 cable_z = 9.00;         // channel floor height (under the PCB pocket)
 plug_w = 14.00;         // plug opening width (box front face)
@@ -90,7 +93,7 @@ module box_lid(body_w, box_y0, box_len, box_h) {
       cube([body_w, box_len, lid_t]);
     for (bx = box_screw_x(body_w), by = box_screw_y(box_y0, box_y1))
       translate([bx, by, box_h])
-        counterbore_hole("M3", lid_t, 0.4, box_head_d, box_head_h);
+        screw_hole("M3", lid_t, head = "countersunk", fit = box_screw_fit);
   }
 }
 

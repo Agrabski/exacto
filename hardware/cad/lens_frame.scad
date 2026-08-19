@@ -191,8 +191,22 @@ module lens_window(lens, wall, clearance) {
 //   travel : how far forward to sweep.  Needs to carry the pocket's REARMOST
 //            corner past the front face; the default clears body_d for the
 //            stock geometry.
+//   inset  : this cutter re-cuts the pocket and window where lens_frame() has
+//            ALREADY cut them — it has to, because it is subtracted from the
+//            whole part and the shroud's lip is not the frame.  Cut for cut,
+//            the two boundaries land on the same surfaces, and CGAL resolves
+//            that tie into duplicate coincident facets: a non-manifold mesh
+//            out of a perfectly valid solid.  Pulling this copy `inset` mm
+//            SMALLER keeps it strictly inside the frame's own cut, so the
+//            frame alone defines the pocket surface and the tie never
+//            happens.  The direction matters: larger instead of smaller
+//            re-introduces the tie against the frame's outer shell.  What it
+//            costs is the insertion channel running 0.28 mm clear of the
+//            glass instead of 0.30 — no lip is added, nothing is tightened
+//            where the optic actually seats.
 module glass_seat_clear(lens, wall, clearance, body_w, glass_cy, glass_cz,
-                        angle, travel = 25) {
+                        angle, travel = 25, inset = 0.02) {
+  clear = clearance - inset;
   arm_w = lens_frame_width(lens, wall);
   frame_y = lens_frame_depth(lens, wall);
   frame_z = lens_frame_height(lens, wall);
@@ -205,14 +219,14 @@ module glass_seat_clear(lens, wall, clearance, body_w, glass_cy, glass_cz,
   }
 
   // The seat itself (pocket + window), so nothing outside the frame intrudes.
-  _seat_local() lens_negatives(lens, wall, clearance);
+  _seat_local() lens_negatives(lens, wall, clear);
 
   // Insertion channel: the pocket swept forward.  The pocket is a convex
   // stadium prism, so hull() of the two ends is exactly the swept volume.
   hull() {
-    _seat_local() lens_pocket(lens, wall, clearance);
+    _seat_local() lens_pocket(lens, wall, clear);
     translate([0, travel, 0])
-      _seat_local() lens_pocket(lens, wall, clearance);
+      _seat_local() lens_pocket(lens, wall, clear);
   }
 }
 

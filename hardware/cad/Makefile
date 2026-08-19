@@ -2,7 +2,7 @@
 #
 # One STL per part, written to ./out/:
 #   Full sight housing : sight_top / sight_bottom / sight_bar / sight_lid
-#   Minimal sight       : sight_minimal
+#   Minimal fixture     : sight_minimal_base / sight_minimal_head
 #   Mega plate          : mega_plate_plate / mega_plate_bar
 #
 # Usage:
@@ -24,7 +24,7 @@ PLATE_SRC := arduino_mega_plate.scad
 
 # Printable parts (the `part` value passed to each model).
 SIGHT_FULL_PARTS := top bottom bar lid
-SIGHT_MIN_PARTS  := minimal
+SIGHT_MIN_PARTS  := minimal_base minimal_head
 PLATE_PARTS      := plate bar spacers
 
 SIGHT_FULL := $(SIGHT_FULL_PARTS:%=$(OUT)/sight_%.stl)

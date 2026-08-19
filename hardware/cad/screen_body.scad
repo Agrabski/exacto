@@ -15,9 +15,10 @@
 //
 // Shared/derived dims (body_w, body_d, …) are passed in; display and
 // fastener specifics are file-level intrinsics.  Fastener bores come from
-// screw_mounts.scad so diameters/depths stay consistent project-wide.
+// scad-common/screw_mounts.scad — the one fastener library the sight uses.
+// (picatinny.scad is the exception: it still carries its own M4 numbers.)
 // ============================================================
-use <screw_mounts.scad>
+use <scad-common/screw_mounts.scad>
 
 // ── Display intrinsics — Waveshare 1.27" SSD1351 RGB OLED ────
 disp_pcb      = [42.20, 29.00, 1.60]; // PCB w, h, t

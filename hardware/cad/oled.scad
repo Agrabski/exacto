@@ -1,4 +1,4 @@
-use <screw_mounts.scad>
+use <scad-common/screw_mounts.scad>
 
 // Display PCB pocket (negative geometry) with the four M2 screw-insert
 // bores beneath its floor.  Pocket floor sits at Z=0; the inserts bore down
@@ -7,12 +7,21 @@ use <screw_mounts.scad>
 // Sized for the Waveshare 0.96" OLED: 26 x 26 mm board, mounting holes
 // inset 2.50 (left) / 1.80 (right) horizontally and 1.90 (bottom) / 2.20
 // (top) vertically.
+pcb_w = 26.00;
+pcb_h = 26.00;
+pcb_t = 1.60;
+pcb_clearance = 0.30;
+top_bottom_extra = 1.00; // extra clearance added above/below the PCB (Y)
+
+// Footprint of the pocket mouth (X, Y).  Exposed because it is WIDER in Y
+// than the display footprint callers work in (top_bottom_extra, both sides):
+// anything that has to carry a cut up through the mouth — see oled_cavity() —
+// needs the real size, or it leaves a rim of ceiling behind.
+function disp_pocket_size() = [pcb_w + pcb_clearance,
+                               pcb_h + pcb_clearance + 2 * top_bottom_extra];
+
 module display_pocket() {
-  pcb_w = 26.00;
-  pcb_h = 26.00;
-  pcb_t = 1.60;
-  clearance = 0.30;
-  top_bottom_extra = 1.00; // extra clearance added above/below the PCB (Y)
+  clearance = pcb_clearance;
 
   // Mounting-hole centres from the PCB's lower-left corner.
   holes = [
